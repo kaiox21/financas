@@ -7,17 +7,18 @@ import { IncomeExpenseChart } from "@/components/charts/income-expense-chart";
 import { CategoryBreakdown } from "@/components/reports/category-breakdown";
 import { MonthSummary } from "@/components/transactions/month-summary";
 import { Button } from "@/components/ui/button";
-import { formatDayMonth, formatMonthLong } from "@/lib/dates";
-import { formatBRL } from "@/lib/money";
+import { formatDayMonth, formatMonthLong, formatMonthShort } from "@/lib/dates";
+import { formatBRL, formatBRLShort } from "@/lib/money";
 import { loadDashboard } from "@/lib/queries/dashboard";
 import { materializeRecurring } from "@/lib/queries/materialize";
+import { loadProjection } from "@/lib/queries/projection";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Início" };
 
 export default async function DashboardPage() {
   await materializeRecurring();
-  const data = await loadDashboard();
+  const [data, projection] = await Promise.all([loadDashboard(), loadProjection()]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -47,6 +48,46 @@ export default async function DashboardPage() {
           {formatMonthLong(data.month)}
         </h2>
         <MonthSummary summary={data.summary} />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium">Próximos meses</h2>
+          <Button variant="ghost" size="sm" render={<Link href="/projecao" />}>
+            Ver projeção
+            <ChevronRight />
+          </Button>
+        </div>
+        <ul className="grid grid-cols-3 gap-2">
+          {projection.months.slice(0, 3).map((month) => {
+            const negative = month.endBalanceCents < 0;
+            return (
+              <li
+                key={month.month}
+                className={cn(
+                  "rounded-lg border p-3",
+                  negative
+                    ? "border-destructive/40 bg-destructive/5"
+                    : "border-emerald-600/30 bg-emerald-600/5",
+                )}
+              >
+                <p className="text-muted-foreground text-xs capitalize">
+                  {formatMonthShort(month.month)}
+                </p>
+                <p
+                  className={cn(
+                    "text-sm font-semibold tabular-nums",
+                    negative
+                      ? "text-destructive"
+                      : "text-emerald-700 dark:text-emerald-500",
+                  )}
+                >
+                  {formatBRLShort(month.endBalanceCents)}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       <section className="flex flex-col gap-3">

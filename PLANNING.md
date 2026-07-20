@@ -113,29 +113,29 @@ Cada fase termina com: `pnpm build` passando + checklist manual validado antes d
 **Fase 1 — Schema** ✅ *(SQL aprovado e aplicado)*
 3. Migration completa + RLS + seed de categorias padrão. Tipos TS gerados.
 
-**Fase 2 — CRUD de transações**
+**Fase 2 — CRUD de transações** ✅
 4. Lista mensal com navegação anterior/próximo + resumo do mês (entrou/saiu/saldo).
 5. FAB + sheet de lançamento rápido; editar/excluir.
 
-**Fase 3 — Recorrentes e parcelamento**
+**Fase 3 — Recorrentes e parcelamento** ✅
 6. CRUD de regras recorrentes + materialização idempotente ao carregar o app.
 7. Parcelamento no formulário (Nx) + geração das parcelas + edição "esta/todas restantes".
 
-**Fase 4 — Contas e cartões**
+**Fase 4 — Contas e cartões** ✅
 8. CRUD contas com saldo computado; CRUD cartões.
 9. Fatura por mês, limite disponível, alerta visual (>80% do limite: amarelo; estourado: vermelho); ação "pagar fatura".
 
-**Fase 5 — Categorias**
+**Fase 5 — Categorias** ✅
 10. CRUD de categorias customizadas (ícone + cor) e subcategorias.
 11. Relatório de gastos por categoria do mês (pizza + barras, Recharts).
 
-**Fase 6 — Investimentos**
+**Fase 6 — Investimentos** ✅
 12. CRUD investimentos; aporte via transação vinculada; atualização manual de valor atual; tela de patrimônio total (contas + investimentos).
 
-**Fase 7 — Dashboard**
+**Fase 7 — Dashboard** ✅
 13. Saldo total, últimas transações, gastos por categoria do mês, gráfico entradas × saídas dos últimos 6 meses.
 
-**Fase 8 — Projeção**
+**Fase 8 — Projeção** ✅
 14. `lib/projection.ts` com testes; página de projeção + cards verde/vermelho no dashboard.
 
 **Fase 9 — Polimento e deploy**
