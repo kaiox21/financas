@@ -1,7 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
-import { CreditCard as CreditCardIcon, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  CreditCard as CreditCardIcon,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Repeat,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteTransaction } from "@/actions/transactions";
@@ -92,7 +100,10 @@ export function TransactionsView({
                 {items.map((transaction) => (
                   <li
                     key={transaction.id}
-                    className="flex items-center gap-3 p-3"
+                    className={cn(
+                      "flex items-center gap-3 p-3",
+                      transaction.isProjected && "opacity-70",
+                    )}
                   >
                     <span
                       className="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
@@ -111,6 +122,11 @@ export function TransactionsView({
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">
                         {transaction.description}
+                        {transaction.isProjected ? (
+                          <span className="text-muted-foreground bg-muted ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-normal">
+                            previsto
+                          </span>
+                        ) : null}
                         {transaction.installment_total ? (
                           <span className="text-muted-foreground ml-1.5 text-xs font-normal tabular-nums">
                             {transaction.installment_number}/
@@ -141,6 +157,17 @@ export function TransactionsView({
                       {formatBRL(transaction.amount_cents).replace("R$", "").trim()}
                     </span>
 
+                    {transaction.isProjected ? (
+                      // Previsão não se edita: quem manda é a regra.
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Editar a regra recorrente"
+                        render={<Link href="/transacoes/recorrentes" />}
+                      >
+                        <Repeat className="text-muted-foreground" />
+                      </Button>
+                    ) : (
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={
@@ -175,6 +202,7 @@ export function TransactionsView({
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    )}
                   </li>
                 ))}
               </ul>

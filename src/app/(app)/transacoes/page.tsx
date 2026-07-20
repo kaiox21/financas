@@ -31,7 +31,12 @@ export default async function TransacoesPage({
   // recorrentes do mês já apareçam na primeira visita do mês.
   await materializeRecurring();
 
-  const [{ transactions, summary }, categories, sources, defaultPaymentMethod] =
+  const [
+    { transactions, summary, isFuture },
+    categories,
+    sources,
+    defaultPaymentMethod,
+  ] =
     await Promise.all([
       listTransactionsByMonth(month),
       listCategories(),
@@ -57,7 +62,7 @@ export default async function TransacoesPage({
       </div>
 
       <MonthNav month={month} />
-      <MonthSummary summary={summary} />
+      <MonthSummary summary={summary} isFuture={isFuture} />
       <TransactionsView
         transactions={transactions}
         formData={{
