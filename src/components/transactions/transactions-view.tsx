@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CategoryIcon } from "@/components/category-icon";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -101,7 +102,10 @@ export function TransactionsView({
                       }}
                       aria-hidden
                     >
-                      {(transaction.category?.name ?? "?").slice(0, 2)}
+                      <CategoryIcon
+                        name={transaction.category?.icon}
+                        className="size-4"
+                      />
                     </span>
 
                     <div className="min-w-0 flex-1">
