@@ -6,6 +6,8 @@ import { toast } from "sonner";
 
 import { deleteCreditCard, setCreditCardArchived } from "@/actions/credit-cards";
 import { CardDialog, useCardDialog } from "@/components/accounts/card-dialog";
+import { CardInvoicesDialog } from "@/components/accounts/card-invoices-dialog";
+import { PayInvoiceDialog } from "@/components/accounts/pay-invoice-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,14 +15,28 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatDateBR } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import type { CreditCard } from "@/types/database";
+import type { Invoice } from "@/lib/invoice-summary";
+import type { CardWithInvoices } from "@/lib/queries/invoices";
+import type { Account } from "@/types/database";
 
-export function CardsPanel({ cards }: { cards: CreditCard[] }) {
+export function CardsPanel({
+  cards,
+  accounts,
+}: {
+  cards: CardWithInvoices[];
+  accounts: Account[];
+}) {
   const dialog = useCardDialog();
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [invoicesFor, setInvoicesFor] = useState<CardWithInvoices | null>(null);
+  const [paying, setPaying] = useState<{
+    card: CardWithInvoices;
+    invoice: Invoice;
+  } | null>(null);
 
   const active = cards.filter((card) => !card.archived);
   const archived = cards.filter((card) => card.archived);
@@ -63,11 +79,12 @@ export function CardsPanel({ cards }: { cards: CreditCard[] }) {
             <li
               key={card.id}
               className={cn(
-                "flex items-center justify-between rounded-lg border p-4",
+                "flex flex-col gap-3 rounded-lg border p-4",
                 card.archived && "opacity-60",
                 busyId === card.id && pending && "animate-pulse",
               )}
             >
+              <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate font-medium">
                   {card.name}
@@ -78,8 +95,7 @@ export function CardsPanel({ cards }: { cards: CreditCard[] }) {
                   ) : null}
                 </p>
                 <p className="text-muted-foreground text-sm tabular-nums">
-                  Limite {formatBRL(card.limit_cents)} · fecha dia {card.closing_day} ·
-                  vence dia {card.due_day}
+                  fecha dia {card.closing_day} · vence dia {card.due_day}
                 </p>
               </div>
 
@@ -124,6 +140,58 @@ export function CardsPanel({ cards }: { cards: CreditCard[] }) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </div>
+
+              <CardLimit card={card} />
+
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 text-sm">
+                  {card.openInvoice ? (
+                    <p className="truncate">
+                      Fatura aberta:{" "}
+                      <span className="font-medium tabular-nums">
+                        {formatBRL(card.openInvoice.totalCents)}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {" "}
+                        · vence {formatDateBR(card.openInvoice.dueDate)}
+                      </span>
+                    </p>
+                  ) : (
+                    <p className="text-muted-foreground">Nenhuma compra em aberto.</p>
+                  )}
+                  {card.nextDueInvoice ? (
+                    <p className="text-amber-700 dark:text-amber-400">
+                      Fatura fechada a pagar:{" "}
+                      {formatBRL(card.nextDueInvoice.outstandingCents)} · vence{" "}
+                      {formatDateBR(card.nextDueInvoice.dueDate)}
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setInvoicesFor(card)}
+                  >
+                    Faturas
+                  </Button>
+                  {card.nextDueInvoice ?? card.openInvoice ? (
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        setPaying({
+                          card,
+                          invoice: card.nextDueInvoice ?? card.openInvoice!,
+                        })
+                      }
+                    >
+                      Pagar
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
             </li>
           ))}
         </ul>
@@ -135,6 +203,69 @@ export function CardsPanel({ cards }: { cards: CreditCard[] }) {
         open={dialog.open}
         onOpenChange={dialog.onOpenChange}
       />
+
+      {invoicesFor ? (
+        <CardInvoicesDialog
+          key={`invoices-${invoicesFor.id}`}
+          card={invoicesFor}
+          open
+          onOpenChange={(next) => {
+            if (!next) setInvoicesFor(null);
+          }}
+          onPay={(invoice) => {
+            setInvoicesFor(null);
+            setPaying({ card: invoicesFor, invoice });
+          }}
+        />
+      ) : null}
+
+      {paying ? (
+        <PayInvoiceDialog
+          key={`pay-${paying.card.id}-${paying.invoice.month}`}
+          card={paying.card}
+          invoice={paying.invoice}
+          accounts={accounts}
+          open
+          onOpenChange={(next) => {
+            if (!next) setPaying(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function CardLimit({ card }: { card: CardWithInvoices }) {
+  const percent =
+    card.limit_cents > 0
+      ? Math.min(100, Math.round((card.usedCents / card.limit_cents) * 100))
+      : 0;
+
+  const barColor =
+    card.status === "exceeded"
+      ? "bg-destructive"
+      : card.status === "warning"
+        ? "bg-amber-500"
+        : "bg-emerald-600";
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
+        <div
+          className={cn("h-full rounded-full transition-all", barColor)}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <p
+        className={cn(
+          "text-xs tabular-nums",
+          card.status === "exceeded" ? "text-destructive" : "text-muted-foreground",
+        )}
+      >
+        {card.status === "exceeded"
+          ? `Limite estourado em ${formatBRL(-card.availableCents)}`
+          : `${formatBRL(card.availableCents)} disponíveis de ${formatBRL(card.limit_cents)}`}
+      </p>
     </div>
   );
 }

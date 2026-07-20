@@ -24,9 +24,9 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { groupByParent } from "@/lib/categories";
-import { formatMonthLong, today } from "@/lib/dates";
+import { formatDateBR, formatMonthLong, today } from "@/lib/dates";
 import { emptyState } from "@/lib/form-state";
-import { invoiceMonthFor } from "@/lib/invoices";
+import { invoiceDueDate, invoiceMonthFor } from "@/lib/invoices";
 import { MAX_INSTALLMENTS, formatBRL, splitInstallments } from "@/lib/money";
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, usesCreditCard } from "@/lib/payment-methods";
 import { cn } from "@/lib/utils";
@@ -80,15 +80,17 @@ export function TransactionSheet({
   const selectedCard = data.cards.find((card) => card.id === cardId);
 
   // Prévia da fatura: a mesma função pura que a server action usa para gravar.
-  const invoicePreview =
-    onCredit && selectedCard
-      ? formatMonthLong(
-          invoiceMonthFor(date, {
-            closingDay: selectedCard.closing_day,
-            dueDay: selectedCard.due_day,
-          }),
-        )
-      : null;
+  // O mês sozinho é ambíguo (mês da compra? do fechamento?), então mostramos
+  // também a data de vencimento, que não deixa dúvida.
+  const invoicePreview = (() => {
+    if (!onCredit || !selectedCard) return null;
+    const cycle = {
+      closingDay: selectedCard.closing_day,
+      dueDay: selectedCard.due_day,
+    };
+    const month = invoiceMonthFor(date, cycle);
+    return { month: formatMonthLong(month), dueDate: formatDateBR(invoiceDueDate(month, cycle)) };
+  })();
 
   const missingSource = onCredit ? data.cards.length === 0 : data.accounts.length === 0;
   const editingInstallment = Boolean(transaction?.installment_group_id);
@@ -292,8 +294,9 @@ export function TransactionSheet({
           {invoicePreview ? (
             <p className="text-muted-foreground text-xs">
               {installments > 1 ? "A 1ª parcela entra" : "Entra"} na fatura de{" "}
-              <strong>{invoicePreview}</strong>. Não sai da conta agora — só quando
-              você pagar a fatura.
+              <strong className="capitalize">{invoicePreview.month}</strong>, que vence
+              em <strong>{invoicePreview.dueDate}</strong>. Não sai da conta agora — só
+              quando você pagar a fatura.
             </p>
           ) : null}
 

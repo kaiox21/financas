@@ -4,12 +4,16 @@ import { AccountsPanel } from "@/components/accounts/accounts-panel";
 import { CardsPanel } from "@/components/accounts/cards-panel";
 import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { listAccounts, listCreditCards } from "@/lib/queries/accounts";
+import { listAccounts } from "@/lib/queries/accounts";
+import { listCardsWithInvoices } from "@/lib/queries/invoices";
 
 export const metadata: Metadata = { title: "Contas e cartões" };
 
 export default async function ContasPage() {
-  const [accounts, cards] = await Promise.all([listAccounts(), listCreditCards()]);
+  const [accounts, cards] = await Promise.all([
+    listAccounts(),
+    listCardsWithInvoices(),
+  ]);
 
   return (
     <>
@@ -29,7 +33,10 @@ export default async function ContasPage() {
         </TabsContent>
 
         <TabsContent value="cartoes" className="pt-4">
-          <CardsPanel cards={cards} />
+          <CardsPanel
+            cards={cards}
+            accounts={accounts.filter((account) => !account.archived)}
+          />
         </TabsContent>
       </Tabs>
     </>
