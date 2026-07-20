@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { addMonths, addMonthsToMonth } from "./dates";
 import {
   installmentInvoiceMonths,
   invoiceClosingDate,
@@ -83,5 +84,31 @@ describe("installmentInvoiceMonths", () => {
       "2027-01-01",
       "2027-02-01",
     ]);
+  });
+
+  it("as faturas são sempre meses consecutivos, sem repetir nem pular", () => {
+    for (const cycle of [nubank, itau]) {
+      for (const date of ["2026-01-31", "2026-01-15", "2026-07-06", "2026-12-29"]) {
+        const months = installmentInvoiceMonths(date, cycle, 12);
+        expect(new Set(months).size).toBe(12);
+        months.forEach((month, i) => {
+          expect(month).toBe(addMonthsToMonth(months[0], i));
+        });
+      }
+    }
+  });
+
+  // Compra dia 31 num cartão que fecha dia 28: a 2ª parcela é exibida em 28/02
+  // (o dia é limitado por fevereiro), que é exatamente o dia do fechamento.
+  // Derivar a fatura dessa data colocaria as parcelas 1 e 2 na MESMA fatura —
+  // por isso a fatura vem da sequência, e a data serve só para a parcela
+  // aparecer no mês certo da lista.
+  it("compra no dia 31 com fechamento no dia 28 não junta duas parcelas na mesma fatura", () => {
+    const months = installmentInvoiceMonths("2026-01-31", itau, 3);
+    expect(months).toEqual(["2026-03-01", "2026-04-01", "2026-05-01"]);
+
+    const naive = [0, 1, 2].map((i) => invoiceMonthFor(addMonths("2026-01-31", i), itau));
+    expect(naive).toEqual(["2026-03-01", "2026-03-01", "2026-05-01"]);
+    expect(new Set(naive).size).toBe(2); // a armadilha, documentada
   });
 });

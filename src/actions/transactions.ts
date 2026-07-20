@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { isValidDate } from "@/lib/dates";
+import { addMonths, addMonthsToMonth, isValidDate, type MonthStr } from "@/lib/dates";
 import { invoiceMonthFor } from "@/lib/invoices";
+import { MAX_INSTALLMENTS, splitInstallments } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
 import type { TablesInsert } from "@/types/database";
 
@@ -46,6 +47,14 @@ const transactionSchema = z.object({
   account_id: optionalId,
   credit_card_id: optionalId,
 });
+
+type TransactionInput = z.infer<typeof transactionSchema>;
+
+const installmentsSchema = z.coerce
+  .number()
+  .int()
+  .min(1)
+  .max(MAX_INSTALLMENTS, `No máximo ${MAX_INSTALLMENTS} parcelas`);
 
 function readForm(formData: FormData) {
   return transactionSchema.safeParse({
@@ -112,21 +121,144 @@ export async function saveTransaction(
   const id = formData.get("id");
 
   if (typeof id === "string" && id) {
-    const { error } = await supabase.from("transactions").update(fields).eq("id", id);
-    if (error) return failure("Não foi possível salvar a transação.");
-  } else {
-    const { error } = await supabase
-      .from("transactions")
-      .insert({ ...fields, user_id: await requireUserId() });
-    if (error) return failure("Não foi possível criar a transação.");
+    const scope = formData.get("scope") === "remaining" ? "remaining" : "one";
+    return updateTransaction(id, fields, scope);
   }
+
+  const installments = installmentsSchema.safeParse(formData.get("installments") ?? "1");
+  if (!installments.success) return failure(firstIssue(installments.error));
+
+  if (installments.data > 1) {
+    if (input.payment_method !== "credito") {
+      return failure("Parcelamento só está disponível para compras no crédito.");
+    }
+    return createInstallments(input, installments.data, invoiceMonth!);
+  }
+
+  const { error } = await supabase
+    .from("transactions")
+    .insert({ ...fields, user_id: await requireUserId() });
+  if (error) return failure("Não foi possível criar a transação.");
 
   revalidate();
   return success;
 }
 
-export async function deleteTransaction(id: string): Promise<FormState> {
+/**
+ * Todas as parcelas nascem de uma vez: N transações com o mesmo
+ * `installment_group_id`, cada uma na fatura do mês certo. Assim o mês que
+ * você abre mostra só a parcela daquele mês, e não o valor cheio da compra.
+ */
+async function createInstallments(
+  input: TransactionInput,
+  count: number,
+  firstInvoiceMonth: MonthStr,
+): Promise<FormState> {
   const supabase = await createClient();
+  const userId = await requireUserId();
+  const groupId = crypto.randomUUID();
+
+  const amounts = splitInstallments(input.amount_cents, count);
+  const invoiceMonths = Array.from({ length: count }, (_, i) =>
+    addMonthsToMonth(firstInvoiceMonth, i),
+  );
+
+  const rows: TablesInsert<"transactions">[] = amounts.map((amount, i) => ({
+    user_id: userId,
+    description: input.description,
+    amount_cents: amount,
+    type: input.type,
+    // A data serve só para a parcela aparecer no mês certo da lista. A fatura
+    // vem da sequência, nunca desta data: compra dia 31 num cartão que fecha
+    // dia 28 viraria 28/02 e colidiria com a fatura da parcela anterior.
+    date: addMonths(input.date, i),
+    payment_method: input.payment_method,
+    category_id: input.category_id,
+    account_id: null,
+    credit_card_id: input.credit_card_id,
+    invoice_month: invoiceMonths[i],
+    installment_group_id: groupId,
+    installment_number: i + 1,
+    installment_total: count,
+  }));
+
+  const { error } = await supabase.from("transactions").insert(rows);
+  if (error) return failure("Não foi possível criar as parcelas.");
+
+  revalidate();
+  return success;
+}
+
+type EditableFields = Omit<TablesInsert<"transactions">, "user_id">;
+
+async function updateTransaction(
+  id: string,
+  fields: EditableFields,
+  scope: "one" | "remaining",
+): Promise<FormState> {
+  const supabase = await createClient();
+
+  if (scope === "one") {
+    const { error } = await supabase.from("transactions").update(fields).eq("id", id);
+    if (error) return failure("Não foi possível salvar a transação.");
+    revalidate();
+    return success;
+  }
+
+  const { data: current, error: readError } = await supabase
+    .from("transactions")
+    .select("installment_group_id, installment_number")
+    .eq("id", id)
+    .single();
+  if (readError || !current?.installment_group_id || !current.installment_number) {
+    return failure("Esta transação não faz parte de um parcelamento.");
+  }
+
+  // Data e fatura são de cada parcela — só o que descreve a compra se propaga.
+  const shared = {
+    description: fields.description,
+    amount_cents: fields.amount_cents,
+    category_id: fields.category_id,
+  };
+
+  const { error } = await supabase
+    .from("transactions")
+    .update(shared)
+    .eq("installment_group_id", current.installment_group_id)
+    .gte("installment_number", current.installment_number);
+  if (error) return failure("Não foi possível salvar as parcelas.");
+
+  revalidate();
+  return success;
+}
+
+export async function deleteTransaction(
+  id: string,
+  scope: "one" | "remaining" = "one",
+): Promise<FormState> {
+  const supabase = await createClient();
+
+  if (scope === "remaining") {
+    const { data: current, error: readError } = await supabase
+      .from("transactions")
+      .select("installment_group_id, installment_number")
+      .eq("id", id)
+      .single();
+    if (readError || !current?.installment_group_id || !current.installment_number) {
+      return failure("Esta transação não faz parte de um parcelamento.");
+    }
+
+    const { error } = await supabase
+      .from("transactions")
+      .delete()
+      .eq("installment_group_id", current.installment_group_id)
+      .gte("installment_number", current.installment_number);
+    if (error) return failure("Não foi possível excluir as parcelas.");
+
+    revalidate();
+    return success;
+  }
+
   const { error } = await supabase.from("transactions").delete().eq("id", id);
   if (error) return failure("Não foi possível excluir a transação.");
 

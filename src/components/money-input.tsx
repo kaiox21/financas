@@ -13,10 +13,13 @@ import { cn } from "@/lib/utils";
  */
 export function MoneyInput({
   defaultCents,
+  onCentsChange,
   className,
   ...props
 }: Omit<React.ComponentProps<typeof Input>, "defaultValue" | "type"> & {
   defaultCents?: number;
+  /** Notifica o valor já em centavos — para prévias (ex.: parcelas). */
+  onCentsChange?: (cents: number) => void;
 }) {
   const [value, setValue] = useState(
     defaultCents === undefined ? "" : formatAmount(defaultCents),
@@ -34,7 +37,10 @@ export function MoneyInput({
         autoComplete="off"
         placeholder="0,00"
         className={cn("pl-9 text-right tabular-nums", className)}
-        onChange={(event) => setValue(event.target.value)}
+        onChange={(event) => {
+          setValue(event.target.value);
+          onCentsChange?.(parseAmountToCents(event.target.value) ?? 0);
+        }}
         onFocus={(event) => event.target.select()}
         onBlur={(event) => {
           const cents = parseAmountToCents(event.target.value);

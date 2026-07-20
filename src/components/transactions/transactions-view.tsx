@@ -9,6 +9,15 @@ import {
   TransactionSheet,
   type TransactionFormData,
 } from "@/components/transactions/transaction-sheet";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -32,7 +41,20 @@ export function TransactionsView({
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | undefined>();
+  const [deleting, setDeleting] = useState<TransactionView | null>(null);
   const [, startTransition] = useTransition();
+
+  function remove(id: string, scope: "one" | "remaining") {
+    setDeleting(null);
+    startTransition(async () => {
+      const result = await deleteTransaction(id, scope);
+      if (result.error) toast.error(result.error);
+      else
+        toast.success(
+          scope === "remaining" ? "Parcelas excluídas." : "Transação excluída.",
+        );
+    });
+  }
 
   function openNew() {
     setEditing(undefined);
@@ -83,7 +105,15 @@ export function TransactionsView({
                     </span>
 
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{transaction.description}</p>
+                      <p className="truncate font-medium">
+                        {transaction.description}
+                        {transaction.installment_total ? (
+                          <span className="text-muted-foreground ml-1.5 text-xs font-normal tabular-nums">
+                            {transaction.installment_number}/
+                            {transaction.installment_total}
+                          </span>
+                        ) : null}
+                      </p>
                       <p className="text-muted-foreground flex items-center gap-1 truncate text-xs">
                         {transaction.category?.name ?? "Sem categoria"}
                         {transaction.sourceName ? ` · ${transaction.sourceName}` : ""}
@@ -126,13 +156,15 @@ export function TransactionsView({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           variant="destructive"
-                          onClick={() =>
-                            startTransition(async () => {
-                              const result = await deleteTransaction(transaction.id);
-                              if (result.error) toast.error(result.error);
-                              else toast.success("Transação excluída.");
-                            })
-                          }
+                          onClick={() => {
+                            // Apagar uma parcela isolada quase nunca é o desejado,
+                            // então parcelamento abre o diálogo de escopo.
+                            if (transaction.installment_group_id) {
+                              setDeleting(transaction);
+                            } else {
+                              remove(transaction.id, "one");
+                            }
+                          }}
                         >
                           <Trash2 />
                           Excluir
@@ -164,6 +196,39 @@ export function TransactionsView({
         open={open}
         onOpenChange={setOpen}
       />
+
+      <AlertDialog
+        open={deleting !== null}
+        onOpenChange={(next) => {
+          if (!next) setDeleting(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir parcelamento</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{deleting?.description}&rdquo; é a parcela{" "}
+              {deleting?.installment_number}/{deleting?.installment_total}. O que
+              você quer excluir?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => deleting && remove(deleting.id, "one")}
+            >
+              Só esta parcela
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleting && remove(deleting.id, "remaining")}
+            >
+              Esta e as próximas
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

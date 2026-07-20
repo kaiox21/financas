@@ -66,6 +66,9 @@ export function parseAmountToCents(input: string): number | null {
   return negative ? -cents : cents;
 }
 
+/** Teto de parcelas oferecido no formulário. */
+export const MAX_INSTALLMENTS = 24;
+
 /** Divide um total em N parcelas; o resto de centavos vai na primeira. */
 export function splitInstallments(totalCents: number, count: number): number[] {
   if (count < 1) throw new Error("Número de parcelas deve ser >= 1");

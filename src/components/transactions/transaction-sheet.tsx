@@ -27,6 +27,7 @@ import { groupByParent } from "@/lib/categories";
 import { formatMonthLong, today } from "@/lib/dates";
 import { emptyState } from "@/lib/form-state";
 import { invoiceMonthFor } from "@/lib/invoices";
+import { MAX_INSTALLMENTS, formatBRL, splitInstallments } from "@/lib/money";
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHODS, usesCreditCard } from "@/lib/payment-methods";
 import { cn } from "@/lib/utils";
 import type { Account, Category, CreditCard, PaymentMethod, Transaction, TxType } from "@/types/database";
@@ -64,6 +65,8 @@ export function TransactionSheet({
   const [categoryId, setCategoryId] = useState<string | null>(
     transaction?.category_id ?? null,
   );
+  const [installments, setInstallments] = useState(1);
+  const [amountCents, setAmountCents] = useState(transaction?.amount_cents ?? 0);
 
   useEffect(() => {
     if (state.ok) {
@@ -88,6 +91,20 @@ export function TransactionSheet({
       : null;
 
   const missingSource = onCredit ? data.cards.length === 0 : data.accounts.length === 0;
+  const editingInstallment = Boolean(transaction?.installment_group_id);
+
+  // "3x de R$ 33,34" — o resto de centavos cai na 1ª parcela, como no servidor.
+  const installmentPreview =
+    onCredit && !editing && installments > 1 && amountCents > 0
+      ? (() => {
+          const parts = splitInstallments(amountCents, installments);
+          const first = formatBRL(parts[0]);
+          const rest = formatBRL(parts[installments - 1]);
+          return first === rest
+            ? `${installments}x de ${rest}`
+            : `1x de ${first} + ${installments - 1}x de ${rest}`;
+        })()
+      : null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -106,6 +123,11 @@ export function TransactionSheet({
           <input type="hidden" name="category_id" value={categoryId ?? ""} />
           <input type="hidden" name="account_id" value={onCredit ? "" : accountId} />
           <input type="hidden" name="credit_card_id" value={onCredit ? cardId : ""} />
+          <input
+            type="hidden"
+            name="installments"
+            value={onCredit ? installments : 1}
+          />
 
           {/* Saída vem primeiro e já selecionada: é a maioria dos lançamentos. */}
           <div className="bg-muted grid grid-cols-2 gap-1 rounded-lg p-1">
@@ -137,6 +159,7 @@ export function TransactionSheet({
               id="tx-amount"
               name="amount_cents"
               defaultCents={transaction?.amount_cents}
+              onCentsChange={setAmountCents}
               className="h-12 text-lg"
               autoFocus
             />
@@ -239,11 +262,67 @@ export function TransactionSheet({
             )}
           </div>
 
+          {onCredit && !editing ? (
+            <div className="flex flex-col gap-2">
+              <Label>Parcelas</Label>
+              <Select
+                value={String(installments)}
+                onValueChange={(value) => setInstallments(Number(value))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: MAX_INSTALLMENTS }, (_, i) => i + 1).map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n === 1 ? "À vista" : `${n}x`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
+
+          {installmentPreview ? (
+            <p className="text-muted-foreground text-xs">
+              {installmentPreview}
+            </p>
+          ) : null}
+
           {invoicePreview ? (
             <p className="text-muted-foreground text-xs">
-              Entra na fatura de <strong>{invoicePreview}</strong>. Não sai da conta
-              agora — só quando você pagar a fatura.
+              {installments > 1 ? "A 1ª parcela entra" : "Entra"} na fatura de{" "}
+              <strong>{invoicePreview}</strong>. Não sai da conta agora — só quando
+              você pagar a fatura.
             </p>
+          ) : null}
+
+          {editingInstallment ? (
+            <div className="flex flex-col gap-2 rounded-lg border p-3">
+              <p className="text-sm font-medium">
+                Parcela {transaction!.installment_number}/
+                {transaction!.installment_total}
+              </p>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="scope"
+                  value="one"
+                  defaultChecked
+                  className="accent-primary"
+                />
+                Alterar só esta parcela
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="scope"
+                  value="remaining"
+                  className="accent-primary"
+                />
+                Alterar esta e as próximas
+              </label>
+            </div>
           ) : null}
 
           {missingSource ? (
