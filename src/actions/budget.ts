@@ -38,10 +38,15 @@ export async function saveBudgetLine(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  const rawAmount = formData.get("amount_cents");
+  if (typeof rawAmount !== "string" || rawAmount.trim() === "") {
+    return failure("Informe o valor por mês (ex.: 800,00).");
+  }
+
   const parsed = lineSchema.safeParse({
     category_id: formData.get("category_id") ?? "",
     description: formData.get("description") ?? "",
-    amount_cents: formData.get("amount_cents"),
+    amount_cents: rawAmount,
   });
   if (!parsed.success) return failure(firstIssue(parsed.error));
 
