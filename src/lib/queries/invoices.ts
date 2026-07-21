@@ -50,13 +50,19 @@ export async function listCardsWithInvoices(): Promise<CardWithInvoices[]> {
     const invoices = buildInvoices(byCard.get(card.id) ?? [], cycle, reference);
     const usedCents = usedLimitCents(invoices);
 
+    // `invoices` vem do mês mais recente para o mais antigo. Parcelas criam
+    // faturas futuras, que também estão "abertas"; a fatura aberta que
+    // interessa é a que está acumulando AGORA — a aberta mais próxima, não a
+    // mais distante. Entre as abertas (ordem decrescente), é a última.
+    const openInvoices = invoices.filter((invoice) => invoice.isOpen);
+
     return {
       ...card,
       invoices,
       usedCents,
       availableCents: card.limit_cents - usedCents,
       status: limitStatus(usedCents, card.limit_cents),
-      openInvoice: invoices.find((invoice) => invoice.isOpen) ?? null,
+      openInvoice: openInvoices.at(-1) ?? null,
       nextDueInvoice:
         [...invoices].reverse().find((invoice) => !invoice.isPaid && !invoice.isOpen) ??
         null,
