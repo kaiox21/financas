@@ -32,7 +32,8 @@ export async function loadDashboard(): Promise<DashboardData> {
       supabase
         .from("transactions")
         .select("account_id, type, amount_cents")
-        .not("account_id", "is", null),
+        .not("account_id", "is", null)
+        .eq("affects_balance", true),
       supabase
         .from("transactions")
         .select("*")

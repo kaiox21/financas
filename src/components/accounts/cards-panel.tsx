@@ -5,6 +5,7 @@ import { Archive, ArchiveRestore, MoreVertical, Pencil, Plus, Trash2 } from "luc
 import { toast } from "sonner";
 
 import { deleteCreditCard, setCreditCardArchived } from "@/actions/credit-cards";
+import { setInvoiceHistorical } from "@/actions/invoices";
 import { CardDialog, useCardDialog } from "@/components/accounts/card-dialog";
 import { CardInvoicesDialog } from "@/components/accounts/card-invoices-dialog";
 import { PayInvoiceDialog } from "@/components/accounts/pay-invoice-dialog";
@@ -32,7 +33,9 @@ export function CardsPanel({
   const dialog = useCardDialog();
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [invoicesFor, setInvoicesFor] = useState<CardWithInvoices | null>(null);
+  const [invoicesForId, setInvoicesForId] = useState<string | null>(null);
+  // Deriva da lista viva para o diálogo refletir mudanças após revalidação.
+  const invoicesFor = cards.find((card) => card.id === invoicesForId) ?? null;
   const [paying, setPaying] = useState<{
     card: CardWithInvoices;
     invoice: Invoice;
@@ -173,7 +176,7 @@ export function CardsPanel({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setInvoicesFor(card)}
+                    onClick={() => setInvoicesForId(card.id)}
                   >
                     Faturas
                   </Button>
@@ -210,12 +213,29 @@ export function CardsPanel({
           card={invoicesFor}
           open
           onOpenChange={(next) => {
-            if (!next) setInvoicesFor(null);
+            if (!next) setInvoicesForId(null);
           }}
           onPay={(invoice) => {
-            setInvoicesFor(null);
+            setInvoicesForId(null);
             setPaying({ card: invoicesFor, invoice });
           }}
+          pending={pending}
+          onToggleHistorical={(invoiceMonth, historical) =>
+            run(invoicesFor.id, async () => {
+              const result = await setInvoiceHistorical(
+                invoicesFor.id,
+                invoiceMonth,
+                historical,
+              );
+              if (result.error) toast.error(result.error);
+              else
+                toast.success(
+                  historical
+                    ? "Marcada como já paga — não desconta do saldo."
+                    : "Pagamento volta a descontar do saldo.",
+                );
+            })
+          }
         />
       ) : null}
 

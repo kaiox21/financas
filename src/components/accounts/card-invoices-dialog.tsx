@@ -19,11 +19,15 @@ export function CardInvoicesDialog({
   open,
   onOpenChange,
   onPay,
+  onToggleHistorical,
+  pending = false,
 }: {
   card: CardWithInvoices;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPay: (invoice: Invoice) => void;
+  onToggleHistorical: (invoiceMonth: string, historical: boolean) => void;
+  pending?: boolean;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -60,6 +64,29 @@ export function CardInvoicesDialog({
                     <p className="text-muted-foreground text-xs">
                       pago {formatBRL(invoice.paidCents)} de{" "}
                       {formatBRL(invoice.totalCents)}
+                    </p>
+                  ) : null}
+                  {invoice.paidCents > 0 && invoice.paymentAffectsBalance ? (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => onToggleHistorical(invoice.month, true)}
+                      className="text-primary mt-1 text-xs underline underline-offset-2 disabled:opacity-50"
+                    >
+                      já paga antes? não descontar do saldo
+                    </button>
+                  ) : null}
+                  {invoice.paidCents > 0 && !invoice.paymentAffectsBalance ? (
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      histórica — não desconta do saldo ·{" "}
+                      <button
+                        type="button"
+                        disabled={pending}
+                        onClick={() => onToggleHistorical(invoice.month, false)}
+                        className="text-primary underline underline-offset-2 disabled:opacity-50"
+                      >
+                        desfazer
+                      </button>
                     </p>
                   ) : null}
                 </div>

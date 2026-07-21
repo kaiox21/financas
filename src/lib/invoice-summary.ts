@@ -22,11 +22,18 @@ export type Invoice = {
   isPaid: boolean;
   /** Ainda aceita compras novas? */
   isOpen: boolean;
+  /** Há pagamento que ainda desconta do saldo (i.e. não marcado como histórico). */
+  paymentAffectsBalance: boolean;
 };
 
 type InvoiceInput = Pick<
   Transaction,
-  "type" | "amount_cents" | "invoice_month" | "payment_method" | "is_invoice_payment"
+  | "type"
+  | "amount_cents"
+  | "invoice_month"
+  | "payment_method"
+  | "is_invoice_payment"
+  | "affects_balance"
 >;
 
 export function buildInvoices(
@@ -34,12 +41,15 @@ export function buildInvoices(
   cycle: InvoiceCycle,
   reference: DateStr,
 ): Invoice[] {
-  const totals = new Map<MonthStr, { total: number; paid: number }>();
+  const totals = new Map<
+    MonthStr,
+    { total: number; paid: number; paidAffecting: number }
+  >();
 
   const bucket = (month: MonthStr) => {
     let entry = totals.get(month);
     if (!entry) {
-      entry = { total: 0, paid: 0 };
+      entry = { total: 0, paid: 0, paidAffecting: 0 };
       totals.set(month, entry);
     }
     return entry;
@@ -51,6 +61,7 @@ export function buildInvoices(
 
     if (transaction.is_invoice_payment) {
       entry.paid += transaction.amount_cents;
+      if (transaction.affects_balance) entry.paidAffecting += transaction.amount_cents;
     } else if (transaction.payment_method === "credito") {
       // Uma entrada no crédito é estorno: abate a fatura.
       entry.total +=
@@ -59,7 +70,7 @@ export function buildInvoices(
   }
 
   return [...totals.entries()]
-    .map(([month, { total, paid }]) => {
+    .map(([month, { total, paid, paidAffecting }]) => {
       const closingDate = invoiceClosingDate(month, cycle);
       return {
         month,
@@ -70,6 +81,7 @@ export function buildInvoices(
         outstandingCents: total - paid,
         isPaid: total - paid <= 0,
         isOpen: reference <= closingDate,
+        paymentAffectsBalance: paidAffecting > 0,
       };
     })
     .sort((a, b) => b.month.localeCompare(a.month));

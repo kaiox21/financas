@@ -14,7 +14,9 @@ export async function listAccounts(): Promise<AccountWithBalance[]> {
     supabase
       .from("transactions")
       .select("account_id, type, amount_cents")
-      .not("account_id", "is", null),
+      .not("account_id", "is", null)
+      // Pagamentos históricos ficam de fora do saldo (já refletidos no inicial).
+      .eq("affects_balance", true),
   ]);
 
   if (accounts.error) throw accounts.error;

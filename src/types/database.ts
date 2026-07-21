@@ -106,6 +106,8 @@ type TransactionRow = {
   installment_total: number | null;
   investment_id: string | null;
   is_invoice_payment: boolean;
+  /** `false` = pagamento histórico: fatura fica paga, mas não desconta do saldo. */
+  affects_balance: boolean;
   created_at: Timestamp;
 };
 
@@ -151,6 +153,7 @@ export type Database = {
         | "installment_total"
         | "investment_id"
         | "is_invoice_payment"
+        | "affects_balance"
       >;
     };
     Views: Record<never, never>;

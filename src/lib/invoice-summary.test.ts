@@ -11,6 +11,7 @@ const purchase = (invoiceMonth: string, cents: number) => ({
   invoice_month: invoiceMonth,
   payment_method: "credito" as const,
   is_invoice_payment: false,
+  affects_balance: true,
 });
 
 const refund = (invoiceMonth: string, cents: number) => ({
@@ -19,6 +20,7 @@ const refund = (invoiceMonth: string, cents: number) => ({
   invoice_month: invoiceMonth,
   payment_method: "credito" as const,
   is_invoice_payment: false,
+  affects_balance: true,
 });
 
 const payment = (invoiceMonth: string, cents: number) => ({
@@ -27,6 +29,38 @@ const payment = (invoiceMonth: string, cents: number) => ({
   invoice_month: invoiceMonth,
   payment_method: "pix" as const,
   is_invoice_payment: true,
+  affects_balance: true,
+});
+
+const historicalPayment = (invoiceMonth: string, cents: number) => ({
+  type: "expense" as const,
+  amount_cents: cents,
+  invoice_month: invoiceMonth,
+  payment_method: "pix" as const,
+  is_invoice_payment: true,
+  affects_balance: false,
+});
+
+describe("pagamento histórico", () => {
+  it("quita a fatura mas não conta como pagamento que mexe no saldo", () => {
+    const [invoice] = buildInvoices(
+      [purchase("2026-08-01", 12000), historicalPayment("2026-08-01", 12000)],
+      cycle,
+      "2026-08-20",
+    );
+    expect(invoice.isPaid).toBe(true);
+    expect(invoice.paidCents).toBe(12000);
+    expect(invoice.paymentAffectsBalance).toBe(false);
+  });
+
+  it("pagamento normal marca que mexe no saldo", () => {
+    const [invoice] = buildInvoices(
+      [purchase("2026-08-01", 12000), payment("2026-08-01", 12000)],
+      cycle,
+      "2026-08-20",
+    );
+    expect(invoice.paymentAffectsBalance).toBe(true);
+  });
 });
 
 describe("buildInvoices", () => {

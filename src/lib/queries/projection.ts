@@ -59,7 +59,8 @@ export async function loadProjection(): Promise<ProjectionData> {
       supabase
         .from("transactions")
         .select("account_id, type, amount_cents")
-        .not("account_id", "is", null),
+        .not("account_id", "is", null)
+        .eq("affects_balance", true),
       supabase.from("recurring_transactions").select("*").eq("active", true),
       supabase
         .from("transactions")
@@ -75,7 +76,7 @@ export async function loadProjection(): Promise<ProjectionData> {
       supabase
         .from("transactions")
         .select(
-          "credit_card_id, type, amount_cents, invoice_month, payment_method, is_invoice_payment",
+          "credit_card_id, type, amount_cents, invoice_month, payment_method, is_invoice_payment, affects_balance",
         )
         .not("credit_card_id", "is", null),
       listBudgetLines(),

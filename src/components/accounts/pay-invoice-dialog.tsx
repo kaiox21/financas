@@ -137,6 +137,22 @@ export function PayInvoiceDialog({
             </div>
           </div>
 
+          <label className="bg-muted/40 flex items-start gap-2 rounded-lg border p-3 text-sm">
+            <input
+              type="checkbox"
+              name="historical"
+              className="accent-primary mt-0.5 size-4"
+            />
+            <span>
+              Fatura já quitada antes (não descontar do meu saldo)
+              <span className="text-muted-foreground mt-0.5 block text-xs">
+                Marque para faturas antigas, pagas antes de você começar a usar o
+                app. A fatura fica paga, mas o valor não sai do saldo — ele já
+                estava refletido no saldo que você cadastrou.
+              </span>
+            </span>
+          </label>
+
           {accounts.length === 0 ? (
             <p role="alert" className="text-destructive text-sm">
               Nenhuma conta cadastrada para pagar a fatura.

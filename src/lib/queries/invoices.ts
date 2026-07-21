@@ -29,7 +29,7 @@ export async function listCardsWithInvoices(): Promise<CardWithInvoices[]> {
     supabase
       .from("transactions")
       .select(
-        "credit_card_id, type, amount_cents, invoice_month, payment_method, is_invoice_payment",
+        "credit_card_id, type, amount_cents, invoice_month, payment_method, is_invoice_payment, affects_balance",
       )
       .not("credit_card_id", "is", null),
   ]);

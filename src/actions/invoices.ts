@@ -22,6 +22,11 @@ const paySchema = z.object({
   amount_cents: positiveMoneyField,
   date: z.string().refine(isValidDate, "Data inválida"),
   payment_method: z.enum(["dinheiro", "pix", "debito", "boleto", "transferencia"]),
+  // Checkbox: fatura já quitada antes de usar o app → marca paga sem descontar.
+  historical: z
+    .string()
+    .optional()
+    .transform((value) => value === "on" || value === "true"),
 });
 
 /**
@@ -40,6 +45,7 @@ export async function payInvoice(
     amount_cents: formData.get("amount_cents"),
     date: formData.get("date"),
     payment_method: formData.get("payment_method"),
+    historical: formData.get("historical") ?? undefined,
   });
   if (!parsed.success) return failure(firstIssue(parsed.error));
 
@@ -64,9 +70,35 @@ export async function payInvoice(
     credit_card_id: input.credit_card_id,
     invoice_month: input.invoice_month,
     is_invoice_payment: true,
+    affects_balance: !input.historical,
     category_id: null,
   });
   if (error) return failure("Não foi possível registrar o pagamento.");
+
+  revalidatePath("/contas");
+  revalidatePath("/transacoes");
+  revalidatePath("/");
+  return success;
+}
+
+/**
+ * Corrige pagamentos já lançados: alterna entre descontar do saldo e tratar
+ * como histórico (fatura segue paga, sem mexer no saldo). Vale para todos os
+ * pagamentos daquele mês de fatura no cartão de uma vez.
+ */
+export async function setInvoiceHistorical(
+  creditCardId: string,
+  invoiceMonth: string,
+  historical: boolean,
+): Promise<FormState> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("transactions")
+    .update({ affects_balance: !historical })
+    .eq("credit_card_id", creditCardId)
+    .eq("invoice_month", invoiceMonth)
+    .eq("is_invoice_payment", true);
+  if (error) return failure("Não foi possível atualizar o pagamento.");
 
   revalidatePath("/contas");
   revalidatePath("/transacoes");

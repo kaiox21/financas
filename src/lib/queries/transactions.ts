@@ -113,6 +113,7 @@ function projectRuleForMonth(rule: RecurringTransaction, month: MonthStr): Trans
       installment_total: null,
       investment_id: null,
       is_invoice_payment: false,
+      affects_balance: true,
       created_at: rule.created_at,
     }));
 }
