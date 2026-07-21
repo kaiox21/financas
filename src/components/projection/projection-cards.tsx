@@ -56,8 +56,17 @@ export function ProjectionCards({ months }: { months: ProjectedMonth[] }) {
               </span>
             </div>
 
-            {month.drivers.length > 0 ? (
+            {month.openingBalanceCents !== 0 || month.drivers.length > 0 ? (
               <ul className="mt-3 flex flex-col gap-1 border-t pt-3">
+                {month.openingBalanceCents !== 0 ? (
+                  <li className="flex justify-between gap-2 text-xs text-emerald-600 dark:text-emerald-500">
+                    <span className="truncate">Saldo que você já tem</span>
+                    <span className="shrink-0 tabular-nums">
+                      {month.openingBalanceCents >= 0 ? "+" : "−"}
+                      {formatBRL(Math.abs(month.openingBalanceCents))}
+                    </span>
+                  </li>
+                ) : null}
                 {month.drivers.map((driver) => (
                   <li
                     key={driver.label}

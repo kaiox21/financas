@@ -30,6 +30,27 @@ const aluguel: ProjectionRule = {
 const MESES = ["2026-08-01", "2026-09-01", "2026-10-01"];
 
 describe("project", () => {
+  it("o saldo atual entra somado às entradas do primeiro mês, não nos demais", () => {
+    const result = project({
+      startingBalanceCents: 100000,
+      months: MESES,
+      rules: [salario],
+      scheduled: [],
+      plannedExpenses: [],
+    });
+
+    // 1º mês: saldo (1000) entra no resultado junto com o salário (7000).
+    expect(result[0].openingBalanceCents).toBe(100000);
+    expect(result[0].incomeCents).toBe(700000); // income puro; saldo é à parte
+    expect(result[0].netCents).toBe(800000); // 1000 + 7000
+    expect(result[0].endBalanceCents).toBe(800000);
+
+    // meses seguintes não recebem o saldo de novo.
+    expect(result[1].openingBalanceCents).toBe(0);
+    expect(result[1].netCents).toBe(700000);
+    expect(result[1].endBalanceCents).toBe(1500000);
+  });
+
   it("acumula: cada mês parte do saldo do anterior", () => {
     const result = project({
       startingBalanceCents: 100000,

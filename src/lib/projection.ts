@@ -49,7 +49,12 @@ export type ProjectedMonth = {
   month: MonthStr;
   incomeCents: number;
   expenseCents: number;
-  /** Resultado do mês: entradas − saídas. */
+  /**
+   * Saldo atual entrando neste mês. Só o primeiro mês projetado recebe (é o
+   * dinheiro que você já tem hoje); nos demais é 0. Entra somado às entradas.
+   */
+  openingBalanceCents: number;
+  /** Resultado do mês: saldo que entra + entradas − saídas. */
   netCents: number;
   /** Saldo acumulado ao fim do mês. Negativo = vai faltar dinheiro. */
   endBalanceCents: number;
@@ -88,12 +93,15 @@ export function project({
     else scheduledByMonth.set(key, [transaction]);
   }
 
-  let balance = startingBalanceCents;
+  // O saldo atual não é o ponto de partida do acumulado: ele entra somado às
+  // entradas do primeiro mês projetado. O acumulado começa do zero.
+  let balance = 0;
 
-  return months.map((month) => {
+  return months.map((month, index) => {
     let incomeCents = 0;
     let expenseCents = 0;
     const drivers: ProjectionDriver[] = [];
+    const openingBalanceCents = index === 0 ? startingBalanceCents : 0;
 
     for (const rule of rules) {
       const occurrences = countOccurrencesIn(rule, month);
@@ -131,13 +139,14 @@ export function project({
       drivers.push({ label: planned.label, amountCents: planned.amountCents });
     }
 
-    const netCents = incomeCents - expenseCents;
+    const netCents = openingBalanceCents + incomeCents - expenseCents;
     balance += netCents;
 
     return {
       month,
       incomeCents,
       expenseCents,
+      openingBalanceCents,
       netCents,
       endBalanceCents: balance,
       drivers: mergeDrivers(drivers).slice(0, 3),

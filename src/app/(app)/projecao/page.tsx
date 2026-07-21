@@ -24,7 +24,7 @@ export default async function ProjecaoPage() {
       />
 
       <section className="mb-6 rounded-lg border p-4">
-        <p className="text-muted-foreground text-xs">Ponto de partida</p>
+        <p className="text-muted-foreground text-xs">Você tem hoje</p>
         <p className="text-2xl font-semibold tabular-nums">
           {formatBRL(data.startingBalanceCents)}
         </p>
@@ -32,7 +32,8 @@ export default async function ProjecaoPage() {
           {formatBRL(data.accountsBalanceCents)} em contas
           {data.cardDebtCents > 0
             ? ` − ${formatBRL(data.cardDebtCents)} em faturas ainda não pagas`
-            : ""}
+            : ""}{" "}
+          — esse valor entra somado às entradas do primeiro mês.
         </p>
       </section>
 
