@@ -15,6 +15,7 @@ import {
 } from "./utils";
 
 const lineSchema = z.object({
+  type: z.enum(["income", "expense"]),
   category_id: z
     .string()
     .trim()
@@ -44,6 +45,7 @@ export async function saveBudgetLine(
   }
 
   const parsed = lineSchema.safeParse({
+    type: formData.get("type") ?? "expense",
     category_id: formData.get("category_id") ?? "",
     description: formData.get("description") ?? "",
     amount_cents: rawAmount,

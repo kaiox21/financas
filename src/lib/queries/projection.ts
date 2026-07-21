@@ -20,8 +20,10 @@ export type ProjectionData = {
   startingBalanceCents: number;
   accountsBalanceCents: number;
   cardDebtCents: number;
-  /** Total das linhas de orçamento aplicado a cada mês. */
-  plannedTotalCents: number;
+  /** Total das saídas planejadas aplicado a cada mês. */
+  plannedExpenseCents: number;
+  /** Total das entradas planejadas aplicado a cada mês. */
+  plannedIncomeCents: number;
   budgetLines: BudgetLineView[];
   /** Média histórica de gasto variável — referência ao montar o orçamento. */
   variableAverageCents: number;
@@ -132,14 +134,19 @@ export async function loadProjection(): Promise<ProjectionData> {
   const variableAverageCents = variableAverage(history.data!, averageWindow);
   const startingBalanceCents = accountsBalanceCents - cardDebtCents;
 
-  const plannedExpenses = budgetLines.map((line) => ({
+  const toPlanned = (line: BudgetLineView) => ({
     label: budgetLineLabel(line),
     amountCents: line.amount_cents,
-  }));
-  const plannedTotalCents = plannedExpenses.reduce(
-    (sum, planned) => sum + planned.amountCents,
-    0,
-  );
+  });
+  const plannedExpenses = budgetLines
+    .filter((line) => line.type === "expense")
+    .map(toPlanned);
+  const plannedIncome = budgetLines
+    .filter((line) => line.type === "income")
+    .map(toPlanned);
+
+  const sum = (items: { amountCents: number }[]) =>
+    items.reduce((total, item) => total + item.amountCents, 0);
 
   const months = project({
     startingBalanceCents,
@@ -147,6 +154,7 @@ export async function loadProjection(): Promise<ProjectionData> {
     rules: rules.data!,
     scheduled: scheduled.data!,
     plannedExpenses,
+    plannedIncome,
   });
 
   return {
@@ -154,7 +162,8 @@ export async function loadProjection(): Promise<ProjectionData> {
     startingBalanceCents,
     accountsBalanceCents,
     cardDebtCents,
-    plannedTotalCents,
+    plannedExpenseCents: sum(plannedExpenses),
+    plannedIncomeCents: sum(plannedIncome),
     budgetLines,
     variableAverageCents,
     averageWindow,

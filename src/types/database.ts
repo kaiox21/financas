@@ -85,6 +85,7 @@ type BudgetLineRow = {
   category_id: string | null;
   description: string | null;
   amount_cents: number;
+  type: TxType;
   created_at: Timestamp;
 };
 
@@ -140,7 +141,7 @@ export type Database = {
         | "active"
       >;
       investments: TableFor<InvestmentRow, "current_value_cents">;
-      budget_lines: TableFor<BudgetLineRow, "category_id" | "description">;
+      budget_lines: TableFor<BudgetLineRow, "category_id" | "description" | "type">;
       transactions: TableFor<
         TransactionRow,
         | "category_id"

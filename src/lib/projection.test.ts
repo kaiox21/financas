@@ -45,6 +45,24 @@ describe("project", () => {
     expect(result[2].endBalanceCents).toBe(100000 + 1350000);
   });
 
+  it("entradas planejadas somam à receita de todo mês", () => {
+    const result = project({
+      startingBalanceCents: 0,
+      months: ["2026-08-01", "2026-09-01"],
+      rules: [],
+      scheduled: [],
+      plannedExpenses: [{ label: "Aluguel", amountCents: 250000 }],
+      plannedIncome: [{ label: "Freela", amountCents: 300000 }],
+    });
+
+    expect(result[0].incomeCents).toBe(300000);
+    expect(result[0].expenseCents).toBe(250000);
+    expect(result[0].netCents).toBe(50000);
+    expect(result[1].endBalanceCents).toBe(100000);
+    // entrada não vira "puxador" (esses são só as saídas)
+    expect(result[0].drivers.map((d) => d.label)).toEqual(["Aluguel"]);
+  });
+
   it("soma as linhas de orçamento em todo mês, cada uma como seu próprio custo", () => {
     const result = project({
       startingBalanceCents: 0,

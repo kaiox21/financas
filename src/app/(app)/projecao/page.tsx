@@ -40,7 +40,8 @@ export default async function ProjecaoPage() {
         <BudgetPanel
           lines={data.budgetLines}
           categories={categories}
-          totalCents={data.plannedTotalCents}
+          expenseCents={data.plannedExpenseCents}
+          incomeCents={data.plannedIncomeCents}
           averageCents={data.variableAverageCents}
         />
       </div>
@@ -66,10 +67,11 @@ export default async function ProjecaoPage() {
       <section className="text-muted-foreground mt-6 flex flex-col gap-2 rounded-lg border border-dashed p-4 text-xs">
         <p className="text-foreground text-sm font-medium">Como a conta é feita</p>
         <p>
-          Cada mês parte do saldo do anterior e soma as recorrentes ativas, as
-          parcelas já compromissadas e{" "}
-          <strong>{formatBRL(data.plannedTotalCents)}</strong> em custos planejados —
-          as linhas de orçamento que você definiu acima.
+          Cada mês parte do saldo do anterior, soma as recorrentes ativas e as
+          entradas planejadas (<strong>{formatBRL(data.plannedIncomeCents)}</strong>),
+          e subtrai as parcelas já compromissadas e as saídas planejadas (
+          <strong>{formatBRL(data.plannedExpenseCents)}</strong>) — as linhas de
+          orçamento que você definiu acima.
         </p>
         <p>
           Compras no crédito contam no mês em que foram feitas; o pagamento da

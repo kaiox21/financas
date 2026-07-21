@@ -15,7 +15,8 @@
  *   + recorrentes de receita ativas
  *   − recorrentes de despesa ativas
  *   − transações já lançadas com data naquele mês (parcelas, sobretudo)
- *   − linhas de orçamento (custos planejados por categoria)
+ *   + receitas planejadas (linhas de orçamento de entrada)
+ *   − custos planejados (linhas de orçamento de saída)
  */
 
 import { monthOf, type DateStr, type MonthStr } from "./dates";
@@ -38,8 +39,8 @@ export type ProjectionDriver = {
   amountCents: number;
 };
 
-/** Custo mensal planejado — uma linha de orçamento por categoria. */
-export type PlannedExpense = {
+/** Item mensal planejado — uma linha de orçamento (entrada ou saída). */
+export type PlannedItem = {
   label: string;
   amountCents: number;
 };
@@ -64,7 +65,9 @@ export type ProjectionInput = {
   /** Transações já gravadas com data futura — parcelas, principalmente. */
   scheduled: ScheduledTransaction[];
   /** Custos planejados que se repetem em todo mês projetado. */
-  plannedExpenses: PlannedExpense[];
+  plannedExpenses: PlannedItem[];
+  /** Receitas planejadas que se repetem em todo mês projetado. */
+  plannedIncome?: PlannedItem[];
 };
 
 export function project({
@@ -73,6 +76,7 @@ export function project({
   rules,
   scheduled,
   plannedExpenses,
+  plannedIncome = [],
 }: ProjectionInput): ProjectedMonth[] {
   const scheduledByMonth = new Map<MonthStr, ScheduledTransaction[]>();
   for (const transaction of scheduled) {
@@ -114,6 +118,11 @@ export function project({
           amountCents: transaction.amount_cents,
         });
       }
+    }
+
+    for (const planned of plannedIncome) {
+      if (planned.amountCents <= 0) continue;
+      incomeCents += planned.amountCents;
     }
 
     for (const planned of plannedExpenses) {

@@ -25,57 +25,163 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { groupByParent } from "@/lib/categories";
 import { emptyState } from "@/lib/form-state";
 import { formatBRL } from "@/lib/money";
 import { budgetLineLabel, type BudgetLineView } from "@/lib/budget";
-import type { Category } from "@/types/database";
+import { cn } from "@/lib/utils";
+import type { Category, TxType } from "@/types/database";
 
 export function BudgetPanel({
   lines,
   categories,
-  totalCents,
+  expenseCents,
+  incomeCents,
   averageCents,
 }: {
   lines: BudgetLineView[];
   categories: Category[];
-  totalCents: number;
+  expenseCents: number;
+  incomeCents: number;
   averageCents: number;
 }) {
+  const [tab, setTab] = useState<TxType>("expense");
   const [editing, setEditing] = useState<BudgetLineView | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<TxType | null>(null);
   const [, startTransition] = useTransition();
 
   function remove(id: string) {
     startTransition(async () => {
       const result = await deleteBudgetLine(id);
       if (result.error) toast.error(result.error);
-      else toast.success("Custo removido.");
+      else toast.success("Item removido.");
     });
   }
 
+  const expenses = lines.filter((line) => line.type === "expense");
+  const income = lines.filter((line) => line.type === "income");
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border p-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="grid grid-cols-2 gap-3">
         <div>
-          <p className="text-muted-foreground text-xs">Custos planejados por mês</p>
-          <p className="text-lg font-semibold tabular-nums">{formatBRL(totalCents)}</p>
+          <p className="text-muted-foreground text-xs">Entradas planejadas / mês</p>
+          <p className="text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-500">
+            {formatBRL(incomeCents)}
+          </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
+        <div>
+          <p className="text-muted-foreground text-xs">Saídas planejadas / mês</p>
+          <p className="text-lg font-semibold tabular-nums">{formatBRL(expenseCents)}</p>
+        </div>
+      </div>
+
+      <Tabs value={tab} onValueChange={(value) => setTab(value as TxType)}>
+        <TabsList className="w-full">
+          <TabsTrigger value="expense">Saídas</TabsTrigger>
+          <TabsTrigger value="income">Entradas</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="expense" className="pt-3">
+          <Section
+            lines={expenses}
+            type="expense"
+            emptyHint={
+              <>
+                Some seus gastos do dia a dia — alimentação, lazer, transporte. A
+                projeção subtrai cada um de todo mês, junto com os fixos.
+                {averageCents > 0
+                  ? ` Nos últimos meses você gastou em média ${formatBRL(averageCents)} fora de recorrentes e parcelas.`
+                  : ""}
+              </>
+            }
+            onAdd={() => setCreating("expense")}
+            onEdit={setEditing}
+            onRemove={remove}
+          />
+        </TabsContent>
+
+        <TabsContent value="income" className="pt-3">
+          <Section
+            lines={income}
+            type="income"
+            emptyHint={
+              <>
+                Receitas que se repetem todo mês além do salário — freela, bônus,
+                aluguel recebido. A projeção soma cada uma em todo mês futuro.
+              </>
+            }
+            onAdd={() => setCreating("income")}
+            onEdit={setEditing}
+            onRemove={remove}
+          />
+        </TabsContent>
+      </Tabs>
+
+      <p className="text-muted-foreground text-xs">
+        Salário e outras recorrentes que você já cadastrou em Transações →
+        Recorrentes já entram na projeção — não precisa repetir aqui.
+      </p>
+
+      {creating ? (
+        <BudgetLineDialog
+          key={`new-${creating}`}
+          type={creating}
+          categories={categories}
+          suggestedCents={
+            creating === "expense" && expenses.length === 0 && averageCents > 0
+              ? averageCents
+              : undefined
+          }
+          open
+          onOpenChange={(next) => {
+            if (!next) setCreating(null);
+          }}
+        />
+      ) : null}
+      {editing ? (
+        <BudgetLineDialog
+          key={`edit-${editing.id}`}
+          line={editing}
+          type={editing.type}
+          categories={categories}
+          open
+          onOpenChange={(next) => {
+            if (!next) setEditing(null);
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function Section({
+  lines,
+  type,
+  emptyHint,
+  onAdd,
+  onEdit,
+  onRemove,
+}: {
+  lines: BudgetLineView[];
+  type: TxType;
+  emptyHint: React.ReactNode;
+  onAdd: () => void;
+  onEdit: (line: BudgetLineView) => void;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex justify-end">
+        <Button variant="outline" size="sm" onClick={onAdd}>
           <Plus />
-          Adicionar
+          {type === "income" ? "Nova entrada" : "Nova saída"}
         </Button>
       </div>
 
       {lines.length === 0 ? (
-        <p className="text-muted-foreground text-xs">
-          Some seus gastos do dia a dia — alimentação, lazer, transporte — como
-          linhas de custo. A projeção subtrai cada uma de todo mês, junto com os
-          fixos.
-          {averageCents > 0
-            ? ` Nos últimos meses você gastou em média ${formatBRL(averageCents)} fora de recorrentes e parcelas.`
-            : ""}
-        </p>
+        <p className="text-muted-foreground text-xs">{emptyHint}</p>
       ) : (
         <ul className="flex flex-col divide-y">
           {lines.map((line) => (
@@ -93,14 +199,20 @@ export function BudgetPanel({
               <span className="min-w-0 flex-1 truncate text-sm">
                 {budgetLineLabel(line)}
               </span>
-              <span className="shrink-0 text-sm font-medium tabular-nums">
+              <span
+                className={cn(
+                  "shrink-0 text-sm font-medium tabular-nums",
+                  type === "income" && "text-emerald-600 dark:text-emerald-500",
+                )}
+              >
+                {type === "income" ? "+" : ""}
                 {formatBRL(line.amount_cents)}
               </span>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 aria-label={`Editar ${budgetLineLabel(line)}`}
-                onClick={() => setEditing(line)}
+                onClick={() => onEdit(line)}
               >
                 <Pencil />
               </Button>
@@ -108,7 +220,7 @@ export function BudgetPanel({
                 variant="ghost"
                 size="icon-sm"
                 aria-label={`Remover ${budgetLineLabel(line)}`}
-                onClick={() => remove(line.id)}
+                onClick={() => onRemove(line.id)}
               >
                 <Trash2 />
               </Button>
@@ -116,37 +228,20 @@ export function BudgetPanel({
           ))}
         </ul>
       )}
-
-      <BudgetLineDialog
-        key={creating ? "new" : "new-closed"}
-        categories={categories}
-        suggestedCents={lines.length === 0 && averageCents > 0 ? averageCents : undefined}
-        open={creating}
-        onOpenChange={setCreating}
-      />
-      {editing ? (
-        <BudgetLineDialog
-          key={`edit-${editing.id}`}
-          line={editing}
-          categories={categories}
-          open
-          onOpenChange={(next) => {
-            if (!next) setEditing(null);
-          }}
-        />
-      ) : null}
     </div>
   );
 }
 
 function BudgetLineDialog({
   line,
+  type,
   categories,
   suggestedCents,
   open,
   onOpenChange,
 }: {
   line?: BudgetLineView;
+  type: TxType;
   categories: Category[];
   suggestedCents?: number;
   open: boolean;
@@ -155,29 +250,40 @@ function BudgetLineDialog({
   const [state, formAction, pending] = useActionState(saveBudgetLine, emptyState);
   const [categoryId, setCategoryId] = useState<string | null>(line?.category_id ?? null);
   const editing = Boolean(line);
+  const isIncome = type === "income";
 
   useEffect(() => {
     if (state.ok) {
-      toast.success(editing ? "Custo atualizado." : "Custo adicionado.");
+      toast.success(editing ? "Item atualizado." : "Item adicionado.");
       onOpenChange(false);
     }
   }, [state, editing, onOpenChange]);
 
-  const groups = groupByParent(categories, "expense");
+  const groups = groupByParent(categories, type);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <form action={formAction} className="flex flex-col gap-4">
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar custo" : "Novo custo planejado"}</DialogTitle>
+            <DialogTitle>
+              {editing
+                ? isIncome
+                  ? "Editar entrada"
+                  : "Editar saída"
+                : isIncome
+                  ? "Nova entrada planejada"
+                  : "Nova saída planejada"}
+            </DialogTitle>
             <DialogDescription>
-              Um gasto médio que se repete todo mês. Escolha a categoria e o valor —
-              a projeção subtrai isso de cada mês futuro.
+              {isIncome
+                ? "Uma receita média que se repete todo mês. A projeção soma isso a cada mês futuro."
+                : "Um gasto médio que se repete todo mês. A projeção subtrai isso de cada mês futuro."}
             </DialogDescription>
           </DialogHeader>
 
           {line ? <input type="hidden" name="id" value={line.id} /> : null}
+          <input type="hidden" name="type" value={type} />
           <input type="hidden" name="category_id" value={categoryId ?? ""} />
 
           <div className="flex flex-col gap-2">
@@ -206,7 +312,7 @@ function BudgetLineDialog({
               id="budget-desc"
               name="description"
               defaultValue={line?.description ?? ""}
-              placeholder="Ex.: Mercado e feira"
+              placeholder={isIncome ? "Ex.: Freela mensal" : "Ex.: Mercado e feira"}
               maxLength={120}
             />
           </div>
