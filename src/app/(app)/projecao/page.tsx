@@ -30,8 +30,8 @@ export default async function ProjecaoPage() {
         </p>
         <p className="text-muted-foreground mt-1 text-xs tabular-nums">
           {formatBRL(data.accountsBalanceCents)} em contas
-          {data.cardDebtCents > 0
-            ? ` − ${formatBRL(data.cardDebtCents)} em faturas ainda não pagas`
+          {data.immediateBillsCents > 0
+            ? ` − ${formatBRL(data.immediateBillsCents)} em faturas a vencer agora`
             : ""}{" "}
           — esse valor entra somado às entradas do primeiro mês.
         </p>
@@ -75,9 +75,9 @@ export default async function ProjecaoPage() {
           orçamento que você definiu acima.
         </p>
         <p>
-          Compras no crédito contam no mês em que foram feitas; o pagamento da
-          fatura não conta de novo, senão o mesmo dinheiro sairia duas vezes. O que
-          você já deve no cartão sai do ponto de partida.
+          As faturas do cartão entram no mês em que <strong>vencem</strong> — cada
+          uma aparece como um puxador no mês certo. Faturas que já vencem agora saem
+          do que você tem hoje; as futuras se espalham pelos próximos meses.
         </p>
       </section>
     </>

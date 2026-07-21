@@ -119,6 +119,28 @@ describe("project", () => {
     expect(result[2].expenseCents).toBe(0);
   });
 
+  it("cada fatura entra no mês em que vence, como puxador", () => {
+    const result = project({
+      startingBalanceCents: 0,
+      months: MESES,
+      rules: [],
+      scheduled: [],
+      cardBills: [
+        { month: "2026-08-01", label: "Fatura Nubank", amountCents: 120000 },
+        { month: "2026-09-01", label: "Fatura Nubank", amountCents: 45000 },
+      ],
+      plannedExpenses: [],
+    });
+
+    expect(result[0].expenseCents).toBe(120000);
+    expect(result[1].expenseCents).toBe(45000);
+    expect(result[2].expenseCents).toBe(0);
+    expect(result[0].drivers).toContainEqual({
+      label: "Fatura Nubank",
+      amountCents: 120000,
+    });
+  });
+
   it("pagamento de fatura não conta de novo — a compra já foi contada", () => {
     const result = project({
       startingBalanceCents: 0,

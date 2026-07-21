@@ -45,6 +45,13 @@ export type PlannedItem = {
   amountCents: number;
 };
 
+/** Fatura de cartão que vence num mês específico da projeção. */
+export type CardBill = {
+  month: MonthStr;
+  label: string;
+  amountCents: number;
+};
+
 export type ProjectedMonth = {
   month: MonthStr;
   incomeCents: number;
@@ -63,12 +70,22 @@ export type ProjectedMonth = {
 };
 
 export type ProjectionInput = {
-  /** Saldo das contas menos o total ainda devido nas faturas. */
+  /**
+   * Dinheiro que você tem hoje (contas), menos apenas faturas já vencidas/deste
+   * mês. As faturas futuras NÃO entram aqui — elas caem no mês em que vencem,
+   * via `cardBills`.
+   */
   startingBalanceCents: number;
   months: MonthStr[];
   rules: ProjectionRule[];
-  /** Transações já gravadas com data futura — parcelas, principalmente. */
+  /**
+   * Transações não-crédito já gravadas com data futura. Parcelas de crédito
+   * ficam de fora — são representadas pelas faturas (`cardBills`), senão o
+   * mesmo gasto contaria duas vezes.
+   */
   scheduled: ScheduledTransaction[];
+  /** Faturas de cartão que vencem em cada mês da projeção. */
+  cardBills?: CardBill[];
   /** Custos planejados que se repetem em todo mês projetado. */
   plannedExpenses: PlannedItem[];
   /** Receitas planejadas que se repetem em todo mês projetado. */
@@ -80,6 +97,7 @@ export function project({
   months,
   rules,
   scheduled,
+  cardBills = [],
   plannedExpenses,
   plannedIncome = [],
 }: ProjectionInput): ProjectedMonth[] {
@@ -91,6 +109,14 @@ export function project({
     const list = scheduledByMonth.get(key);
     if (list) list.push(transaction);
     else scheduledByMonth.set(key, [transaction]);
+  }
+
+  const billsByMonth = new Map<MonthStr, CardBill[]>();
+  for (const bill of cardBills) {
+    if (bill.amountCents <= 0) continue;
+    const list = billsByMonth.get(bill.month);
+    if (list) list.push(bill);
+    else billsByMonth.set(bill.month, [bill]);
   }
 
   // O saldo atual não é o ponto de partida do acumulado: ele entra somado às
@@ -137,6 +163,12 @@ export function project({
       if (planned.amountCents <= 0) continue;
       expenseCents += planned.amountCents;
       drivers.push({ label: planned.label, amountCents: planned.amountCents });
+    }
+
+    // Faturas de cartão que vencem neste mês.
+    for (const bill of billsByMonth.get(month) ?? []) {
+      expenseCents += bill.amountCents;
+      drivers.push({ label: bill.label, amountCents: bill.amountCents });
     }
 
     const netCents = openingBalanceCents + incomeCents - expenseCents;

@@ -5,7 +5,7 @@ import {
   monthSequence,
   type MonthStr,
 } from "@/lib/dates";
-import { buildInvoices, usedLimitCents } from "@/lib/invoice-summary";
+import { buildInvoices } from "@/lib/invoice-summary";
 import {
   firstNegativeMonth,
   project,
@@ -19,7 +19,10 @@ export type ProjectionData = {
   months: ProjectedMonth[];
   startingBalanceCents: number;
   accountsBalanceCents: number;
-  cardDebtCents: number;
+  /** Faturas já vencidas/deste mês, descontadas do que você tem hoje. */
+  immediateBillsCents: number;
+  /** Total das faturas futuras espalhadas pelos meses da projeção. */
+  futureBillsCents: number;
   /** Total das saídas planejadas aplicado a cada mês. */
   plannedExpenseCents: number;
   /** Total das entradas planejadas aplicado a cada mês. */
@@ -72,8 +75,13 @@ export async function loadProjection(): Promise<ProjectionData> {
         .gte("date", historyStart),
       supabase
         .from("transactions")
-        .select("date, description, amount_cents, type, is_invoice_payment")
-        .gte("date", futureStart),
+        .select(
+          "date, description, amount_cents, type, is_invoice_payment, payment_method",
+        )
+        .gte("date", futureStart)
+        // Crédito fica de fora: as parcelas entram pelas faturas (cardBills),
+        // no mês em que vencem — contá-las pela data seria duplicar.
+        .neq("payment_method", "credito"),
       supabase.from("credit_cards").select("*"),
       supabase
         .from("transactions")
@@ -112,9 +120,8 @@ export async function loadProjection(): Promise<ProjectionData> {
       0,
     );
 
-  // Dívida de cartão: compras já feitas que ainda não foram pagas. Elas
-  // aconteceram no passado, então nenhum mês futuro as representa — precisam
-  // sair do ponto de partida.
+  // Faturas de cartão: cada uma vence num mês (invoice_month). A projeção
+  // subtrai a fatura no mês em que vence, não tudo de uma vez no início.
   const byCard = new Map<string, typeof cardTransactions.data>();
   for (const transaction of cardTransactions.data!) {
     if (!transaction.credit_card_id) continue;
@@ -122,17 +129,36 @@ export async function loadProjection(): Promise<ProjectionData> {
     if (list) list.push(transaction);
     else byCard.set(transaction.credit_card_id, [transaction]);
   }
-  const cardDebtCents = cards.data!.reduce((sum, card) => {
+
+  const futureSet = new Set(futureMonths);
+  const cardBills: { month: MonthStr; label: string; amountCents: number }[] = [];
+  // Faturas já vencidas ou que vencem ainda este mês (antes do 1º mês
+  // projetado) já são compromisso imediato: saem do que você tem hoje.
+  let immediateBillsCents = 0;
+
+  for (const card of cards.data!) {
     const invoices = buildInvoices(
       byCard.get(card.id) ?? [],
       { closingDay: card.closing_day, dueDay: card.due_day },
       monthRange(now).end,
     );
-    return sum + usedLimitCents(invoices);
-  }, 0);
+    for (const invoice of invoices) {
+      if (invoice.outstandingCents <= 0) continue;
+      if (futureSet.has(invoice.month)) {
+        cardBills.push({
+          month: invoice.month,
+          label: `Fatura ${card.name}`,
+          amountCents: invoice.outstandingCents,
+        });
+      } else if (invoice.month <= now) {
+        immediateBillsCents += invoice.outstandingCents;
+      }
+      // Faturas além da janela de projeção ficam de fora.
+    }
+  }
 
   const variableAverageCents = variableAverage(history.data!, averageWindow);
-  const startingBalanceCents = accountsBalanceCents - cardDebtCents;
+  const startingBalanceCents = accountsBalanceCents - immediateBillsCents;
 
   const toPlanned = (line: BudgetLineView) => ({
     label: budgetLineLabel(line),
@@ -153,6 +179,7 @@ export async function loadProjection(): Promise<ProjectionData> {
     months: futureMonths,
     rules: rules.data!,
     scheduled: scheduled.data!,
+    cardBills,
     plannedExpenses,
     plannedIncome,
   });
@@ -161,7 +188,8 @@ export async function loadProjection(): Promise<ProjectionData> {
     months,
     startingBalanceCents,
     accountsBalanceCents,
-    cardDebtCents,
+    immediateBillsCents,
+    futureBillsCents: sum(cardBills),
     plannedExpenseCents: sum(plannedExpenses),
     plannedIncomeCents: sum(plannedIncome),
     budgetLines,
