@@ -67,6 +67,10 @@ export type ProjectedMonth = {
   endBalanceCents: number;
   /** As três maiores saídas do mês, para explicar o número. */
   drivers: ProjectionDriver[];
+  /** Todas as entradas do mês (recorrentes + planejadas), para o detalhamento. */
+  incomeItems: ProjectionDriver[];
+  /** Todas as saídas do mês (recorrentes + planejadas + faturas), detalhadas. */
+  expenseItems: ProjectionDriver[];
 };
 
 export type ProjectionInput = {
@@ -126,7 +130,8 @@ export function project({
   return months.map((month, index) => {
     let incomeCents = 0;
     let expenseCents = 0;
-    const drivers: ProjectionDriver[] = [];
+    const incomeDrivers: ProjectionDriver[] = [];
+    const expenseDrivers: ProjectionDriver[] = [];
     const openingBalanceCents = index === 0 ? startingBalanceCents : 0;
 
     for (const rule of rules) {
@@ -136,18 +141,23 @@ export function project({
       const amount = rule.amount_cents * occurrences;
       if (rule.type === "income") {
         incomeCents += amount;
+        incomeDrivers.push({ label: rule.description, amountCents: amount });
       } else {
         expenseCents += amount;
-        drivers.push({ label: rule.description, amountCents: amount });
+        expenseDrivers.push({ label: rule.description, amountCents: amount });
       }
     }
 
     for (const transaction of scheduledByMonth.get(month) ?? []) {
       if (transaction.type === "income") {
         incomeCents += transaction.amount_cents;
+        incomeDrivers.push({
+          label: transaction.description,
+          amountCents: transaction.amount_cents,
+        });
       } else {
         expenseCents += transaction.amount_cents;
-        drivers.push({
+        expenseDrivers.push({
           label: transaction.description,
           amountCents: transaction.amount_cents,
         });
@@ -157,19 +167,23 @@ export function project({
     for (const planned of plannedIncome) {
       if (planned.amountCents <= 0) continue;
       incomeCents += planned.amountCents;
+      incomeDrivers.push({ label: planned.label, amountCents: planned.amountCents });
     }
 
     for (const planned of plannedExpenses) {
       if (planned.amountCents <= 0) continue;
       expenseCents += planned.amountCents;
-      drivers.push({ label: planned.label, amountCents: planned.amountCents });
+      expenseDrivers.push({ label: planned.label, amountCents: planned.amountCents });
     }
 
     // Faturas de cartão que vencem neste mês.
     for (const bill of billsByMonth.get(month) ?? []) {
       expenseCents += bill.amountCents;
-      drivers.push({ label: bill.label, amountCents: bill.amountCents });
+      expenseDrivers.push({ label: bill.label, amountCents: bill.amountCents });
     }
+
+    const incomeItems = mergeDrivers(incomeDrivers);
+    const expenseItems = mergeDrivers(expenseDrivers);
 
     const netCents = openingBalanceCents + incomeCents - expenseCents;
     balance += netCents;
@@ -181,7 +195,9 @@ export function project({
       openingBalanceCents,
       netCents,
       endBalanceCents: balance,
-      drivers: mergeDrivers(drivers).slice(0, 3),
+      drivers: expenseItems.slice(0, 3),
+      incomeItems,
+      expenseItems,
     };
   });
 }
