@@ -36,7 +36,7 @@ describe("project", () => {
       months: MESES,
       rules: [salario, aluguel],
       scheduled: [],
-      variableAverageCents: 0,
+      plannedExpenses: [],
     });
 
     // +7000 −2500 = +4500 por mês
@@ -45,17 +45,22 @@ describe("project", () => {
     expect(result[2].endBalanceCents).toBe(100000 + 1350000);
   });
 
-  it("subtrai a média de gasto variável de todo mês", () => {
+  it("soma as linhas de orçamento em todo mês, cada uma como seu próprio custo", () => {
     const result = project({
       startingBalanceCents: 0,
-      months: ["2026-08-01"],
+      months: ["2026-08-01", "2026-09-01"],
       rules: [],
       scheduled: [],
-      variableAverageCents: 120000,
+      plannedExpenses: [
+        { label: "Alimentação", amountCents: 80000 },
+        { label: "Lazer", amountCents: 40000 },
+      ],
     });
 
     expect(result[0].expenseCents).toBe(120000);
+    expect(result[1].expenseCents).toBe(120000);
     expect(result[0].endBalanceCents).toBe(-120000);
+    expect(result[1].endBalanceCents).toBe(-240000);
   });
 
   it("conta as parcelas já lançadas no mês em que caem", () => {
@@ -67,7 +72,7 @@ describe("project", () => {
         { date: "2026-08-20", description: "TV", amount_cents: 30000, type: "expense", is_invoice_payment: false },
         { date: "2026-09-20", description: "TV", amount_cents: 30000, type: "expense", is_invoice_payment: false },
       ],
-      variableAverageCents: 0,
+      plannedExpenses: [],
     });
 
     expect(result[0].expenseCents).toBe(30000);
@@ -83,7 +88,7 @@ describe("project", () => {
       scheduled: [
         { date: "2026-08-12", description: "Fatura Nubank", amount_cents: 234000, type: "expense", is_invoice_payment: true },
       ],
-      variableAverageCents: 0,
+      plannedExpenses: [],
     });
 
     expect(result[0].expenseCents).toBe(0);
@@ -95,7 +100,7 @@ describe("project", () => {
       months: MESES,
       rules: [{ ...aluguel, end_date: "2026-09-30" }],
       scheduled: [],
-      variableAverageCents: 0,
+      plannedExpenses: [],
     });
 
     expect(result[0].expenseCents).toBe(250000);
@@ -109,7 +114,7 @@ describe("project", () => {
       months: ["2026-08-01"],
       rules: [{ ...aluguel, active: false }],
       scheduled: [],
-      variableAverageCents: 0,
+      plannedExpenses: [],
     });
     expect(result[0].expenseCents).toBe(0);
   });
@@ -125,12 +130,12 @@ describe("project", () => {
         { date: "2026-08-21", description: "Curso", amount_cents: 10000, type: "expense", is_invoice_payment: false },
         { date: "2026-08-22", description: "Livro", amount_cents: 5000, type: "expense", is_invoice_payment: false },
       ],
-      variableAverageCents: 80000,
+      plannedExpenses: [{ label: "Alimentação", amountCents: 80000 }],
     });
 
     expect(result[0].drivers).toEqual([
       { label: "Aluguel", amountCents: 250000 },
-      { label: "Gastos variáveis (média)", amountCents: 80000 },
+      { label: "Alimentação", amountCents: 80000 },
       { label: "TV", amountCents: 60000 },
     ]);
   });
@@ -143,14 +148,14 @@ describe("project", () => {
       months: ["2026-08-01"],
       rules: [],
       scheduled: [],
-      variableAverageCents: 0,
+      plannedExpenses: [],
     });
     const comDesconto = project({
       startingBalanceCents: 500000 - 234000,
       months: ["2026-08-01"],
       rules: [],
       scheduled: [],
-      variableAverageCents: 0,
+      plannedExpenses: [],
     });
 
     expect(semDesconto[0].endBalanceCents).toBe(500000);
@@ -215,7 +220,7 @@ describe("firstNegativeMonth", () => {
       months: MESES,
       rules: [aluguel],
       scheduled: [],
-      variableAverageCents: 0,
+      plannedExpenses: [],
     });
     // 3000 − 2500 = 500; −2500 = −2000 em setembro
     expect(firstNegativeMonth(result)).toBe("2026-09-01");
@@ -227,7 +232,7 @@ describe("firstNegativeMonth", () => {
       months: MESES,
       rules: [salario],
       scheduled: [],
-      variableAverageCents: 0,
+      plannedExpenses: [],
     });
     expect(firstNegativeMonth(result)).toBeNull();
   });

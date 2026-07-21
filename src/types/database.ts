@@ -79,10 +79,13 @@ type InvestmentRow = {
   updated_at: Timestamp;
 };
 
-type UserSettingsRow = {
+type BudgetLineRow = {
+  id: string;
   user_id: string;
-  variable_estimate_cents: number | null;
-  updated_at: Timestamp;
+  category_id: string | null;
+  description: string | null;
+  amount_cents: number;
+  created_at: Timestamp;
 };
 
 type TransactionRow = {
@@ -135,7 +138,7 @@ export type Database = {
         | "active"
       >;
       investments: TableFor<InvestmentRow, "current_value_cents">;
-      user_settings: TableFor<UserSettingsRow, "variable_estimate_cents">;
+      budget_lines: TableFor<BudgetLineRow, "category_id" | "description">;
       transactions: TableFor<
         TransactionRow,
         | "category_id"
@@ -180,4 +183,4 @@ export type CreditCard = Tables<"credit_cards">;
 export type RecurringTransaction = Tables<"recurring_transactions">;
 export type Investment = Tables<"investments">;
 export type Transaction = Tables<"transactions">;
-export type UserSettings = Tables<"user_settings">;
+export type BudgetLine = Tables<"budget_lines">;

@@ -12,6 +12,7 @@ import {
   variableAverage,
   type ProjectedMonth,
 } from "@/lib/projection";
+import { budgetLineLabel, listBudgetLines, type BudgetLineView } from "@/lib/queries/budget";
 import { createClient } from "@/lib/supabase/server";
 
 export type ProjectionData = {
@@ -19,13 +20,11 @@ export type ProjectionData = {
   startingBalanceCents: number;
   accountsBalanceCents: number;
   cardDebtCents: number;
-  /** Valor efetivamente usado por mês: a estimativa manual ou a média. */
-  variableCents: number;
-  /** Estimativa manual definida pelo usuário, se houver. */
-  variableEstimateCents: number | null;
-  /** Média histórica (referência, mesmo quando a manual está em uso). */
+  /** Total das linhas de orçamento aplicado a cada mês. */
+  plannedTotalCents: number;
+  budgetLines: BudgetLineView[];
+  /** Média histórica de gasto variável — referência ao montar o orçamento. */
   variableAverageCents: number;
-  /** Meses usados para calcular a média de gasto variável. */
   averageWindow: MonthStr[];
   firstNegative: MonthStr | null;
 };
@@ -54,7 +53,7 @@ export async function loadProjection(): Promise<ProjectionData> {
     scheduled,
     cards,
     cardTransactions,
-    settings,
+    budgetLines,
   ] = await Promise.all([
       supabase.from("accounts").select("id, initial_balance_cents, archived"),
       supabase
@@ -79,10 +78,7 @@ export async function loadProjection(): Promise<ProjectionData> {
           "credit_card_id, type, amount_cents, invoice_month, payment_method, is_invoice_payment",
         )
         .not("credit_card_id", "is", null),
-      supabase
-        .from("user_settings")
-        .select("variable_estimate_cents")
-        .maybeSingle(),
+      listBudgetLines(),
     ]);
 
   for (const result of [
@@ -93,7 +89,6 @@ export async function loadProjection(): Promise<ProjectionData> {
     scheduled,
     cards,
     cardTransactions,
-    settings,
   ]) {
     if (result.error) throw result.error;
   }
@@ -134,17 +129,23 @@ export async function loadProjection(): Promise<ProjectionData> {
   }, 0);
 
   const variableAverageCents = variableAverage(history.data!, averageWindow);
-  const variableEstimateCents = settings.data?.variable_estimate_cents ?? null;
-  // A estimativa manual manda; sem ela, cai na média histórica.
-  const variableCents = variableEstimateCents ?? variableAverageCents;
   const startingBalanceCents = accountsBalanceCents - cardDebtCents;
+
+  const plannedExpenses = budgetLines.map((line) => ({
+    label: budgetLineLabel(line),
+    amountCents: line.amount_cents,
+  }));
+  const plannedTotalCents = plannedExpenses.reduce(
+    (sum, planned) => sum + planned.amountCents,
+    0,
+  );
 
   const months = project({
     startingBalanceCents,
     months: futureMonths,
     rules: rules.data!,
     scheduled: scheduled.data!,
-    variableAverageCents: variableCents,
+    plannedExpenses,
   });
 
   return {
@@ -152,8 +153,8 @@ export async function loadProjection(): Promise<ProjectionData> {
     startingBalanceCents,
     accountsBalanceCents,
     cardDebtCents,
-    variableCents,
-    variableEstimateCents,
+    plannedTotalCents,
+    budgetLines,
     variableAverageCents,
     averageWindow,
     firstNegative: firstNegativeMonth(months),

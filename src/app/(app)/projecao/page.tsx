@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { AlertTriangle } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { BudgetPanel } from "@/components/projection/budget-panel";
 import { ProjectionCards } from "@/components/projection/projection-cards";
-import { VariableEstimate } from "@/components/projection/variable-estimate";
 import { formatMonthLong } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
+import { listCategories } from "@/lib/queries/categories";
 import { materializeRecurring } from "@/lib/queries/materialize";
 import { loadProjection } from "@/lib/queries/projection";
 
@@ -13,7 +14,7 @@ export const metadata: Metadata = { title: "Projeção" };
 
 export default async function ProjecaoPage() {
   await materializeRecurring();
-  const data = await loadProjection();
+  const [data, categories] = await Promise.all([loadProjection(), listCategories()]);
 
   return (
     <>
@@ -36,11 +37,11 @@ export default async function ProjecaoPage() {
       </section>
 
       <div className="mb-6">
-        <VariableEstimate
-          usedCents={data.variableCents}
-          estimateCents={data.variableEstimateCents}
+        <BudgetPanel
+          lines={data.budgetLines}
+          categories={categories}
+          totalCents={data.plannedTotalCents}
           averageCents={data.variableAverageCents}
-          windowMonths={data.averageWindow.length}
         />
       </div>
 
@@ -67,11 +68,8 @@ export default async function ProjecaoPage() {
         <p>
           Cada mês parte do saldo do anterior e soma as recorrentes ativas, as
           parcelas já compromissadas e{" "}
-          <strong>{formatBRL(data.variableCents)}</strong> de gasto variável —{" "}
-          {data.variableEstimateCents !== null
-            ? "o valor que você definiu"
-            : `a média dos últimos ${data.averageWindow.length} meses do que não é recorrente nem parcela`}
-          .
+          <strong>{formatBRL(data.plannedTotalCents)}</strong> em custos planejados —
+          as linhas de orçamento que você definiu acima.
         </p>
         <p>
           Compras no crédito contam no mês em que foram feitas; o pagamento da

@@ -15,7 +15,7 @@
  *   + recorrentes de receita ativas
  *   − recorrentes de despesa ativas
  *   − transações já lançadas com data naquele mês (parcelas, sobretudo)
- *   − média de gasto variável (nem recorrente, nem parcela)
+ *   − linhas de orçamento (custos planejados por categoria)
  */
 
 import { monthOf, type DateStr, type MonthStr } from "./dates";
@@ -34,6 +34,12 @@ export type ScheduledTransaction = Pick<
 >;
 
 export type ProjectionDriver = {
+  label: string;
+  amountCents: number;
+};
+
+/** Custo mensal planejado — uma linha de orçamento por categoria. */
+export type PlannedExpense = {
   label: string;
   amountCents: number;
 };
@@ -57,8 +63,8 @@ export type ProjectionInput = {
   rules: ProjectionRule[];
   /** Transações já gravadas com data futura — parcelas, principalmente. */
   scheduled: ScheduledTransaction[];
-  /** Média mensal de gasto variável dos últimos meses. */
-  variableAverageCents: number;
+  /** Custos planejados que se repetem em todo mês projetado. */
+  plannedExpenses: PlannedExpense[];
 };
 
 export function project({
@@ -66,7 +72,7 @@ export function project({
   months,
   rules,
   scheduled,
-  variableAverageCents,
+  plannedExpenses,
 }: ProjectionInput): ProjectedMonth[] {
   const scheduledByMonth = new Map<MonthStr, ScheduledTransaction[]>();
   for (const transaction of scheduled) {
@@ -110,12 +116,10 @@ export function project({
       }
     }
 
-    if (variableAverageCents > 0) {
-      expenseCents += variableAverageCents;
-      drivers.push({
-        label: "Gastos variáveis (média)",
-        amountCents: variableAverageCents,
-      });
+    for (const planned of plannedExpenses) {
+      if (planned.amountCents <= 0) continue;
+      expenseCents += planned.amountCents;
+      drivers.push({ label: planned.label, amountCents: planned.amountCents });
     }
 
     const netCents = incomeCents - expenseCents;
