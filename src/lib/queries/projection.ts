@@ -19,6 +19,11 @@ export type ProjectionData = {
   startingBalanceCents: number;
   accountsBalanceCents: number;
   cardDebtCents: number;
+  /** Valor efetivamente usado por mês: a estimativa manual ou a média. */
+  variableCents: number;
+  /** Estimativa manual definida pelo usuário, se houver. */
+  variableEstimateCents: number | null;
+  /** Média histórica (referência, mesmo quando a manual está em uso). */
   variableAverageCents: number;
   /** Meses usados para calcular a média de gasto variável. */
   averageWindow: MonthStr[];
@@ -41,8 +46,16 @@ export async function loadProjection(): Promise<ProjectionData> {
   const historyStart = monthRange(averageWindow[0]).start;
   const futureStart = monthRange(futureMonths[0]).start;
 
-  const [accounts, movements, rules, history, scheduled, cards, cardTransactions] =
-    await Promise.all([
+  const [
+    accounts,
+    movements,
+    rules,
+    history,
+    scheduled,
+    cards,
+    cardTransactions,
+    settings,
+  ] = await Promise.all([
       supabase.from("accounts").select("id, initial_balance_cents, archived"),
       supabase
         .from("transactions")
@@ -66,6 +79,10 @@ export async function loadProjection(): Promise<ProjectionData> {
           "credit_card_id, type, amount_cents, invoice_month, payment_method, is_invoice_payment",
         )
         .not("credit_card_id", "is", null),
+      supabase
+        .from("user_settings")
+        .select("variable_estimate_cents")
+        .maybeSingle(),
     ]);
 
   for (const result of [
@@ -76,6 +93,7 @@ export async function loadProjection(): Promise<ProjectionData> {
     scheduled,
     cards,
     cardTransactions,
+    settings,
   ]) {
     if (result.error) throw result.error;
   }
@@ -116,6 +134,9 @@ export async function loadProjection(): Promise<ProjectionData> {
   }, 0);
 
   const variableAverageCents = variableAverage(history.data!, averageWindow);
+  const variableEstimateCents = settings.data?.variable_estimate_cents ?? null;
+  // A estimativa manual manda; sem ela, cai na média histórica.
+  const variableCents = variableEstimateCents ?? variableAverageCents;
   const startingBalanceCents = accountsBalanceCents - cardDebtCents;
 
   const months = project({
@@ -123,7 +144,7 @@ export async function loadProjection(): Promise<ProjectionData> {
     months: futureMonths,
     rules: rules.data!,
     scheduled: scheduled.data!,
-    variableAverageCents,
+    variableAverageCents: variableCents,
   });
 
   return {
@@ -131,6 +152,8 @@ export async function loadProjection(): Promise<ProjectionData> {
     startingBalanceCents,
     accountsBalanceCents,
     cardDebtCents,
+    variableCents,
+    variableEstimateCents,
     variableAverageCents,
     averageWindow,
     firstNegative: firstNegativeMonth(months),

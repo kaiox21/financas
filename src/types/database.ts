@@ -79,6 +79,12 @@ type InvestmentRow = {
   updated_at: Timestamp;
 };
 
+type UserSettingsRow = {
+  user_id: string;
+  variable_estimate_cents: number | null;
+  updated_at: Timestamp;
+};
+
 type TransactionRow = {
   id: string;
   user_id: string;
@@ -129,6 +135,7 @@ export type Database = {
         | "active"
       >;
       investments: TableFor<InvestmentRow, "current_value_cents">;
+      user_settings: TableFor<UserSettingsRow, "variable_estimate_cents">;
       transactions: TableFor<
         TransactionRow,
         | "category_id"
@@ -173,3 +180,4 @@ export type CreditCard = Tables<"credit_cards">;
 export type RecurringTransaction = Tables<"recurring_transactions">;
 export type Investment = Tables<"investments">;
 export type Transaction = Tables<"transactions">;
+export type UserSettings = Tables<"user_settings">;
