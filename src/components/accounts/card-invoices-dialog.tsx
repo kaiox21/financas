@@ -20,6 +20,7 @@ export function CardInvoicesDialog({
   onOpenChange,
   onPay,
   onToggleHistorical,
+  onSettleClosed,
   pending = false,
 }: {
   card: CardWithInvoices;
@@ -27,8 +28,13 @@ export function CardInvoicesDialog({
   onOpenChange: (open: boolean) => void;
   onPay: (invoice: Invoice) => void;
   onToggleHistorical: (invoiceMonth: string, historical: boolean) => void;
+  onSettleClosed: () => void;
   pending?: boolean;
 }) {
+  const closedUnpaid = card.invoices.filter(
+    (invoice) => !invoice.isOpen && !invoice.isPaid,
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85dvh] overflow-y-auto">
@@ -39,6 +45,24 @@ export function CardInvoicesDialog({
             identificada pelo mês em que vence.
           </DialogDescription>
         </DialogHeader>
+
+        {closedUnpaid.length > 1 ? (
+          <div className="bg-muted/40 flex flex-col gap-2 rounded-lg border p-3">
+            <p className="text-sm">
+              {closedUnpaid.length} faturas fechadas em aberto. Se você já pagou
+              todas antes de usar o app, quite de uma vez sem mexer no saldo.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={onSettleClosed}
+              className="self-start"
+            >
+              Quitar todas (já pagas — histórico)
+            </Button>
+          </div>
+        ) : null}
 
         {card.invoices.length === 0 ? (
           <p className="text-muted-foreground py-4 text-sm">

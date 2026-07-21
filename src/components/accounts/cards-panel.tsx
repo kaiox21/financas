@@ -5,7 +5,10 @@ import { Archive, ArchiveRestore, MoreVertical, Pencil, Plus, Trash2 } from "luc
 import { toast } from "sonner";
 
 import { deleteCreditCard, setCreditCardArchived } from "@/actions/credit-cards";
-import { setInvoiceHistorical } from "@/actions/invoices";
+import {
+  setInvoiceHistorical,
+  settleClosedInvoicesHistorical,
+} from "@/actions/invoices";
 import { CardDialog, useCardDialog } from "@/components/accounts/card-dialog";
 import { CardInvoicesDialog } from "@/components/accounts/card-invoices-dialog";
 import { PayInvoiceDialog } from "@/components/accounts/pay-invoice-dialog";
@@ -220,6 +223,13 @@ export function CardsPanel({
             setPaying({ card: invoicesFor, invoice });
           }}
           pending={pending}
+          onSettleClosed={() =>
+            run(invoicesFor.id, async () => {
+              const result = await settleClosedInvoicesHistorical(invoicesFor.id);
+              if (result.error) toast.error(result.error);
+              else toast.success("Faturas fechadas quitadas (histórico).");
+            })
+          }
           onToggleHistorical={(invoiceMonth, historical) =>
             run(invoicesFor.id, async () => {
               const result = await setInvoiceHistorical(
