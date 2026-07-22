@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-import { getUser } from "@/lib/supabase/server";
+import { getAuthClaims } from "@/lib/supabase/server";
 import { BottomNav } from "@/components/bottom-nav";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { LogoutButton } from "@/components/logout-button";
@@ -11,15 +11,15 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getUser();
-  if (!user) redirect("/login");
+  const claims = await getAuthClaims();
+  if (!claims) redirect("/login");
 
   return (
     <div className="min-h-dvh">
       <SidebarNav>
         <div className="flex flex-col gap-3">
           <ThemeToggle />
-          <LogoutButton email={user.email} />
+          <LogoutButton email={claims.email} />
         </div>
       </SidebarNav>
 

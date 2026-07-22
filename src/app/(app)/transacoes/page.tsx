@@ -9,7 +9,6 @@ import { TransactionsView } from "@/components/transactions/transactions-view";
 import { currentMonth, monthOf, isValidDate, type MonthStr } from "@/lib/dates";
 import { listActiveAccountsAndCards } from "@/lib/queries/accounts";
 import { listCategories } from "@/lib/queries/categories";
-import { materializeRecurring } from "@/lib/queries/materialize";
 import { lastPaymentMethod, listTransactionsByMonth } from "@/lib/queries/transactions";
 
 export const metadata: Metadata = { title: "Transações" };
@@ -26,10 +25,6 @@ export default async function TransacoesPage({
   searchParams: Promise<{ mes?: string }>;
 }) {
   const month = resolveMonth((await searchParams).mes);
-
-  // Repetível: só cria o que falta. Rodar antes de listar garante que as
-  // recorrentes do mês já apareçam na primeira visita do mês.
-  await materializeRecurring();
 
   const [
     { transactions, summary, isFuture },

@@ -34,9 +34,12 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims verifica o JWT localmente (sem round-trip ao auth server) quando
+  // as chaves são assimétricas, e ainda renova o token perto de expirar —
+  // reescrevendo os cookies via setAll acima. Roda a cada navegação, então
+  // evitar a ida à rede aqui é o que mais acelera a troca de telas.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
 
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_ROUTES.some(

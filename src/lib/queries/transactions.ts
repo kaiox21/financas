@@ -1,6 +1,12 @@
 import { currentMonth, monthOf, monthRange, type MonthStr } from "@/lib/dates";
+import {
+  getAccounts,
+  getActiveRules,
+  getCategories,
+  getCreditCards,
+  getTransactions,
+} from "@/lib/queries/request-cache";
 import { occurrenceDates } from "@/lib/recurring";
-import { createClient } from "@/lib/supabase/server";
 import { summarize, type MonthSummary } from "@/lib/summary";
 import type {
   Category,
@@ -29,39 +35,28 @@ export async function listTransactionsByMonth(month: MonthStr): Promise<{
   summary: MonthSummary;
   isFuture: boolean;
 }> {
-  const supabase = await createClient();
   const { start, end } = monthRange(month);
   const isFuture = month > currentMonth();
 
-  const [transactions, categories, accounts, cards, rules] = await Promise.all([
-    supabase
-      .from("transactions")
-      .select("*")
-      .gte("date", start)
-      .lte("date", end)
-      .order("date", { ascending: false })
-      .order("created_at", { ascending: false }),
-    supabase.from("categories").select("*"),
-    supabase.from("accounts").select("id, name"),
-    supabase.from("credit_cards").select("id, name"),
-    // Meses futuros ainda não têm as recorrentes materializadas — a
-    // materialização para no mês corrente de propósito, para não criar
-    // lançamentos que ainda não aconteceram.
-    isFuture
-      ? supabase.from("recurring_transactions").select("*").eq("active", true)
-      : Promise.resolve({ data: [], error: null }),
+  // Meses futuros ainda não têm as recorrentes materializadas — a
+  // materialização para no mês corrente de propósito. Só nesse caso as regras
+  // são necessárias, para projetar as ocorrências virtuais do mês.
+  const [allTransactions, categories, accounts, cards, rules] = await Promise.all([
+    getTransactions(),
+    getCategories(),
+    getAccounts(),
+    getCreditCards(),
+    isFuture ? getActiveRules() : Promise.resolve([] as RecurringTransaction[]),
   ]);
 
-  if (transactions.error) throw transactions.error;
-  if (categories.error) throw categories.error;
-  if (accounts.error) throw accounts.error;
-  if (cards.error) throw cards.error;
-  if (rules.error) throw rules.error;
+  const monthTransactions = allTransactions.filter(
+    (transaction) => transaction.date >= start && transaction.date <= end,
+  );
 
-  const categoryById = new Map(categories.data.map((c) => [c.id, c]));
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
   const nameById = new Map<string, string>([
-    ...accounts.data.map((a) => [a.id, a.name] as const),
-    ...cards.data.map((c) => [c.id, c.name] as const),
+    ...accounts.map((a) => [a.id, a.name] as const),
+    ...cards.map((c) => [c.id, c.name] as const),
   ]);
 
   const decorate = <T extends Transaction>(transaction: T, projected: boolean) => ({
@@ -74,9 +69,9 @@ export async function listTransactionsByMonth(month: MonthStr): Promise<{
     isProjected: projected,
   });
 
-  const real = transactions.data.map((transaction) => decorate(transaction, false));
+  const real = monthTransactions.map((transaction) => decorate(transaction, false));
 
-  const projected = (rules.data ?? [])
+  const projected = rules
     .flatMap((rule) => projectRuleForMonth(rule, month))
     .map((transaction) => decorate(transaction, true));
 
@@ -120,14 +115,13 @@ function projectRuleForMonth(rule: RecurringTransaction, month: MonthStr): Trans
 
 /** Forma de pagamento mais recente — vira o default do lançamento rápido. */
 export async function lastPaymentMethod(): Promise<PaymentMethod | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("payment_method")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw error;
-  return data?.payment_method ?? null;
+  // Deriva das transações já carregadas no request (a de `created_at` mais
+  // recente), em vez de uma query própria — na tela de transações elas já
+  // estão em memória.
+  const transactions = await getTransactions();
+  let latest: Transaction | null = null;
+  for (const transaction of transactions) {
+    if (!latest || transaction.created_at > latest.created_at) latest = transaction;
+  }
+  return latest?.payment_method ?? null;
 }

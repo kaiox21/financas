@@ -1,14 +1,14 @@
 import { z } from "zod";
 
-import { getUser } from "@/lib/supabase/server";
+import { getAuthClaims } from "@/lib/supabase/server";
 import { parseAmountToCents } from "@/lib/money";
 
 export { emptyState, failure, success, type FormState } from "@/lib/form-state";
 
 export async function requireUserId(): Promise<string> {
-  const user = await getUser();
-  if (!user) throw new Error("Sessão expirada. Faça login novamente.");
-  return user.id;
+  const claims = await getAuthClaims();
+  if (!claims?.sub) throw new Error("Sessão expirada. Faça login novamente.");
+  return claims.sub;
 }
 
 /** Campo de dinheiro vindo de um `<input>`: "1.234,56" → 123456 centavos. */

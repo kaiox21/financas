@@ -32,11 +32,16 @@ export async function createClient() {
   });
 }
 
-/** Usuário autenticado ou `null`. Valida o token no servidor do Supabase. */
-export async function getUser() {
+/**
+ * Claims do usuário autenticado, ou `null`.
+ *
+ * Usa `getClaims()`, que verifica o JWT localmente (WebCrypto) quando o projeto
+ * usa chaves de assinatura assimétricas — o padrão do Supabase. Sem round-trip
+ * ao servidor de auth a cada navegação, ao contrário de `getUser()`. Tokens
+ * perto de expirar ainda são renovados antes da validação.
+ */
+export async function getAuthClaims() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+  const { data } = await supabase.auth.getClaims();
+  return data?.claims ?? null;
 }

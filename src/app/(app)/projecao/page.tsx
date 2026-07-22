@@ -8,13 +8,11 @@ import { ProjectionCards } from "@/components/projection/projection-cards";
 import { formatMonthLong } from "@/lib/dates";
 import { formatBRL } from "@/lib/money";
 import { listCategories } from "@/lib/queries/categories";
-import { materializeRecurring } from "@/lib/queries/materialize";
 import { loadProjection } from "@/lib/queries/projection";
 
 export const metadata: Metadata = { title: "Projeção" };
 
 export default async function ProjecaoPage() {
-  await materializeRecurring();
   const [data, categories] = await Promise.all([loadProjection(), listCategories()]);
 
   return (

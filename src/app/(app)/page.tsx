@@ -11,14 +11,12 @@ import { Button } from "@/components/ui/button";
 import { formatDayMonth, formatMonthLong, formatMonthShort } from "@/lib/dates";
 import { formatBRL, formatBRLShort } from "@/lib/money";
 import { loadDashboard } from "@/lib/queries/dashboard";
-import { materializeRecurring } from "@/lib/queries/materialize";
 import { loadProjection } from "@/lib/queries/projection";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Início" };
 
 export default async function DashboardPage() {
-  await materializeRecurring();
   const [data, projection] = await Promise.all([loadDashboard(), loadProjection()]);
 
   return (

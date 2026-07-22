@@ -6,8 +6,8 @@ import {
   type Invoice,
   type LimitStatus,
 } from "@/lib/invoice-summary";
-import { createClient } from "@/lib/supabase/server";
-import type { CreditCard } from "@/types/database";
+import { getCreditCards, getTransactions } from "@/lib/queries/request-cache";
+import type { CreditCard, Transaction } from "@/types/database";
 
 export type CardWithInvoices = CreditCard & {
   invoices: Invoice[];
@@ -21,31 +21,19 @@ export type CardWithInvoices = CreditCard & {
 };
 
 export async function listCardsWithInvoices(): Promise<CardWithInvoices[]> {
-  const supabase = await createClient();
   const reference = today();
 
-  const [cards, transactions] = await Promise.all([
-    supabase.from("credit_cards").select("*").order("archived").order("name"),
-    supabase
-      .from("transactions")
-      .select(
-        "credit_card_id, type, amount_cents, invoice_month, payment_method, is_invoice_payment, affects_balance",
-      )
-      .not("credit_card_id", "is", null),
-  ]);
+  const [cards, transactions] = await Promise.all([getCreditCards(), getTransactions()]);
 
-  if (cards.error) throw cards.error;
-  if (transactions.error) throw transactions.error;
-
-  const byCard = new Map<string, typeof transactions.data>();
-  for (const transaction of transactions.data) {
+  const byCard = new Map<string, Transaction[]>();
+  for (const transaction of transactions) {
     if (!transaction.credit_card_id) continue;
     const list = byCard.get(transaction.credit_card_id);
     if (list) list.push(transaction);
     else byCard.set(transaction.credit_card_id, [transaction]);
   }
 
-  return cards.data.map((card) => {
+  return cards.map((card) => {
     const cycle = { closingDay: card.closing_day, dueDay: card.due_day };
     const invoices = buildInvoices(byCard.get(card.id) ?? [], cycle, reference);
     const usedCents = usedLimitCents(invoices);

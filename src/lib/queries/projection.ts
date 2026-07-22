@@ -13,7 +13,13 @@ import {
   type ProjectedMonth,
 } from "@/lib/projection";
 import { budgetLineLabel, listBudgetLines, type BudgetLineView } from "@/lib/queries/budget";
-import { createClient } from "@/lib/supabase/server";
+import {
+  getAccounts,
+  getActiveRules,
+  getCreditCards,
+  getTransactions,
+} from "@/lib/queries/request-cache";
+import type { Transaction } from "@/types/database";
 
 export type ProjectionData = {
   months: ProjectedMonth[];
@@ -38,7 +44,6 @@ const MONTHS_AHEAD = 6;
 const AVERAGE_WINDOW = 3;
 
 export async function loadProjection(): Promise<ProjectionData> {
-  const supabase = await createClient();
   const now = currentMonth();
 
   const averageWindow = monthSequence(addMonthsToMonth(now, -AVERAGE_WINDOW), addMonthsToMonth(now, -1));
@@ -50,63 +55,26 @@ export async function loadProjection(): Promise<ProjectionData> {
   const historyStart = monthRange(averageWindow[0]).start;
   const futureStart = monthRange(futureMonths[0]).start;
 
-  const [
-    accounts,
-    movements,
-    rules,
-    history,
-    scheduled,
-    cards,
-    cardTransactions,
-    budgetLines,
-  ] = await Promise.all([
-      supabase.from("accounts").select("id, initial_balance_cents, archived"),
-      supabase
-        .from("transactions")
-        .select("account_id, type, amount_cents")
-        .not("account_id", "is", null)
-        .eq("affects_balance", true),
-      supabase.from("recurring_transactions").select("*").eq("active", true),
-      supabase
-        .from("transactions")
-        .select(
-          "date, type, amount_cents, recurring_id, installment_group_id, is_invoice_payment",
-        )
-        .gte("date", historyStart),
-      supabase
-        .from("transactions")
-        .select(
-          "date, description, amount_cents, type, is_invoice_payment, payment_method",
-        )
-        .gte("date", futureStart)
-        // Crédito fica de fora: as parcelas entram pelas faturas (cardBills),
-        // no mês em que vencem — contá-las pela data seria duplicar.
-        .neq("payment_method", "credito"),
-      supabase.from("credit_cards").select("*"),
-      supabase
-        .from("transactions")
-        .select(
-          "credit_card_id, type, amount_cents, invoice_month, payment_method, is_invoice_payment, affects_balance",
-        )
-        .not("credit_card_id", "is", null),
-      listBudgetLines(),
-    ]);
+  const [accounts, transactions, rules, cards, budgetLines] = await Promise.all([
+    getAccounts(),
+    getTransactions(),
+    getActiveRules(),
+    getCreditCards(),
+    listBudgetLines(),
+  ]);
 
-  for (const result of [
-    accounts,
-    movements,
-    rules,
-    history,
-    scheduled,
-    cards,
-    cardTransactions,
-  ]) {
-    if (result.error) throw result.error;
-  }
+  // Subconjuntos derivados em memória — antes eram queries separadas, todas
+  // sobre a mesma tabela de transações já carregada aqui.
+  const history = transactions.filter((t) => t.date >= historyStart);
+  // Crédito fica de fora do agendado: as parcelas entram pelas faturas
+  // (cardBills), no mês em que vencem — contá-las pela data seria duplicar.
+  const scheduled = transactions.filter(
+    (t) => t.date >= futureStart && t.payment_method !== "credito",
+  );
 
   const delta = new Map<string, number>();
-  for (const movement of movements.data!) {
-    if (!movement.account_id) continue;
+  for (const movement of transactions) {
+    if (!movement.account_id || !movement.affects_balance) continue;
     delta.set(
       movement.account_id,
       (delta.get(movement.account_id) ?? 0) +
@@ -114,7 +82,7 @@ export async function loadProjection(): Promise<ProjectionData> {
     );
   }
   const accountsBalanceCents = accounts
-    .data!.filter((account) => !account.archived)
+    .filter((account) => !account.archived)
     .reduce(
       (sum, account) => sum + account.initial_balance_cents + (delta.get(account.id) ?? 0),
       0,
@@ -122,8 +90,8 @@ export async function loadProjection(): Promise<ProjectionData> {
 
   // Faturas de cartão: cada uma vence num mês (invoice_month). A projeção
   // subtrai a fatura no mês em que vence, não tudo de uma vez no início.
-  const byCard = new Map<string, typeof cardTransactions.data>();
-  for (const transaction of cardTransactions.data!) {
+  const byCard = new Map<string, Transaction[]>();
+  for (const transaction of transactions) {
     if (!transaction.credit_card_id) continue;
     const list = byCard.get(transaction.credit_card_id);
     if (list) list.push(transaction);
@@ -136,7 +104,7 @@ export async function loadProjection(): Promise<ProjectionData> {
   // projetado) já são compromisso imediato: saem do que você tem hoje.
   let immediateBillsCents = 0;
 
-  for (const card of cards.data!) {
+  for (const card of cards) {
     const invoices = buildInvoices(
       byCard.get(card.id) ?? [],
       { closingDay: card.closing_day, dueDay: card.due_day },
@@ -157,7 +125,7 @@ export async function loadProjection(): Promise<ProjectionData> {
     }
   }
 
-  const variableAverageCents = variableAverage(history.data!, averageWindow);
+  const variableAverageCents = variableAverage(history, averageWindow);
   const startingBalanceCents = accountsBalanceCents - immediateBillsCents;
 
   const toPlanned = (line: BudgetLineView) => ({
@@ -177,8 +145,8 @@ export async function loadProjection(): Promise<ProjectionData> {
   const months = project({
     startingBalanceCents,
     months: futureMonths,
-    rules: rules.data!,
-    scheduled: scheduled.data!,
+    rules,
+    scheduled,
     cardBills,
     plannedExpenses,
     plannedIncome,
