@@ -79,6 +79,21 @@ export function TransactionSheet({
   const groups = groupByParent(data.categories, type);
   const selectedCard = data.cards.find((card) => card.id === cardId);
 
+  // Mapas valor→rótulo: sem `items`, o gatilho do select mostra o valor cru
+  // (o UUID da conta, "credito" etc.) em vez do que foi escolhido.
+  const categoryItems: Record<string, string> = {
+    null: "Sem categoria",
+    ...Object.fromEntries(data.categories.map((c) => [c.id, c.name])),
+  };
+  const cardItems = Object.fromEntries(data.cards.map((c) => [c.id, c.name]));
+  const accountItems = Object.fromEntries(data.accounts.map((a) => [a.id, a.name]));
+  const installmentItems = Object.fromEntries(
+    Array.from({ length: MAX_INSTALLMENTS }, (_, i) => [
+      String(i + 1),
+      i === 0 ? "À vista" : `${i + 1}x`,
+    ]),
+  );
+
   // Prévia da fatura: a mesma função pura que a server action usa para gravar.
   // O mês sozinho é ambíguo (mês da compra? do fechamento?), então mostramos
   // também a data de vencimento, que não deixa dúvida.
@@ -183,6 +198,7 @@ export function TransactionSheet({
             <div className="flex flex-col gap-2">
               <Label>Categoria</Label>
               <Select
+                items={categoryItems}
                 value={categoryId}
                 onValueChange={(value) => setCategoryId(value as string | null)}
               >
@@ -214,6 +230,7 @@ export function TransactionSheet({
           <div className="flex flex-col gap-2">
             <Label>Forma de pagamento</Label>
             <Select
+              items={PAYMENT_METHOD_LABELS}
               value={method}
               onValueChange={(value) => setMethod(value as PaymentMethod)}
             >
@@ -233,7 +250,11 @@ export function TransactionSheet({
           <div className="flex flex-col gap-2">
             <Label>{onCredit ? "Cartão" : "Conta"}</Label>
             {onCredit ? (
-              <Select value={cardId} onValueChange={(value) => setCardId(value as string)}>
+              <Select
+                items={cardItems}
+                value={cardId}
+                onValueChange={(value) => setCardId(value as string)}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Escolha o cartão" />
                 </SelectTrigger>
@@ -247,6 +268,7 @@ export function TransactionSheet({
               </Select>
             ) : (
               <Select
+                items={accountItems}
                 value={accountId}
                 onValueChange={(value) => setAccountId(value as string)}
               >
@@ -268,6 +290,7 @@ export function TransactionSheet({
             <div className="flex flex-col gap-2">
               <Label>Parcelas</Label>
               <Select
+                items={installmentItems}
                 value={String(installments)}
                 onValueChange={(value) => setInstallments(Number(value))}
               >
