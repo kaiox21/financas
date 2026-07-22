@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AlertTriangle } from "lucide-react";
 
+import { MoneyFigure } from "@/components/money-figure";
 import { PageHeader } from "@/components/page-header";
 import { BudgetPanel } from "@/components/projection/budget-panel";
 import { ProjectionCards } from "@/components/projection/projection-cards";
@@ -24,10 +25,8 @@ export default async function ProjecaoPage() {
       />
 
       <section className="mb-6 rounded-lg border p-4">
-        <p className="text-muted-foreground text-xs">Você tem hoje</p>
-        <p className="text-2xl font-semibold tabular-nums">
-          {formatBRL(data.startingBalanceCents)}
-        </p>
+        <p className="eyebrow">Você tem hoje</p>
+        <MoneyFigure cents={data.startingBalanceCents} size="lg" />
         <p className="text-muted-foreground mt-1 text-xs tabular-nums">
           {formatBRL(data.accountsBalanceCents)} em contas
           {data.immediateBillsCents > 0

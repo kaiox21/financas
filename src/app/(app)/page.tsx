@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
 import { CategoryIcon } from "@/components/category-icon";
+import { MoneyFigure } from "@/components/money-figure";
 import { IncomeExpenseChart } from "@/components/charts/income-expense-chart";
 import { CategoryBreakdown } from "@/components/reports/category-breakdown";
 import { MonthSummary } from "@/components/transactions/month-summary";
@@ -22,20 +23,13 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <section>
-        <p className="text-muted-foreground text-xs">Saldo em contas</p>
-        <p
-          className={cn(
-            "text-4xl font-semibold tabular-nums",
-            data.accountsBalanceCents < 0 && "text-destructive",
-          )}
-        >
-          {formatBRL(data.accountsBalanceCents)}
-        </p>
+      <section className="flex flex-col gap-1.5 border-b pb-6">
+        <p className="eyebrow">Saldo em contas</p>
+        <MoneyFigure cents={data.accountsBalanceCents} size="hero" />
         {data.investedCents > 0 ? (
           <p className="text-muted-foreground mt-1 text-sm tabular-nums">
             + {formatBRL(data.investedCents)} investidos ={" "}
-            <strong className="text-foreground font-medium">
+            <strong className="text-gold font-semibold">
               {formatBRL(data.netWorthCents)}
             </strong>{" "}
             de patrimônio
@@ -44,15 +38,13 @@ export default async function DashboardPage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium capitalize">
-          {formatMonthLong(data.month)}
-        </h2>
+        <h2 className="eyebrow">{formatMonthLong(data.month)}</h2>
         <MonthSummary summary={data.summary} />
       </section>
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Próximos meses</h2>
+          <h2 className="eyebrow">Próximos meses</h2>
           <Button variant="ghost" size="sm" render={<Link href="/projecao" />}>
             Ver projeção
             <ChevronRight />
@@ -91,13 +83,13 @@ export default async function DashboardPage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium">Entradas e saídas · 6 meses</h2>
+        <h2 className="eyebrow">Entradas e saídas · 6 meses</h2>
         <IncomeExpenseChart data={data.series} />
       </section>
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Gastos por categoria</h2>
+          <h2 className="eyebrow">Gastos por categoria</h2>
           <Button
             variant="ghost"
             size="sm"
@@ -112,7 +104,7 @@ export default async function DashboardPage() {
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium">Últimos lançamentos</h2>
+          <h2 className="eyebrow">Últimos lançamentos</h2>
           <Button variant="ghost" size="sm" render={<Link href="/transacoes" />}>
             Ver tudo
             <ChevronRight />

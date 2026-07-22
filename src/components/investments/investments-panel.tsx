@@ -10,6 +10,7 @@ import {
   InvestmentDialog,
   UpdateValueDialog,
 } from "@/components/investments/investment-dialogs";
+import { MoneyFigure } from "@/components/money-figure";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -49,10 +50,8 @@ export function InvestmentsPanel({
   return (
     <div className="flex flex-col gap-6">
       <section className="rounded-lg border p-4">
-        <p className="text-muted-foreground text-xs">Patrimônio total</p>
-        <p className="text-3xl font-semibold tabular-nums">
-          {formatBRL(worth.totalCents)}
-        </p>
+        <p className="eyebrow">Patrimônio total</p>
+        <MoneyFigure cents={worth.totalCents} size="lg" />
 
         <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div>

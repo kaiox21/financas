@@ -1,4 +1,5 @@
 import { CategoryIcon } from "@/components/category-icon";
+import { MoneyFigure } from "@/components/money-figure";
 import { formatBRL } from "@/lib/money";
 import type { CategoryReport, CategorySlice } from "@/lib/category-report";
 
@@ -32,10 +33,8 @@ export function CategoryBreakdown({ report }: { report: CategoryReport }) {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <p className="text-muted-foreground text-xs">Total de despesas</p>
-        <p className="text-3xl font-semibold tabular-nums">
-          {formatBRL(report.totalCents)}
-        </p>
+        <p className="eyebrow">Total de despesas</p>
+        <MoneyFigure cents={report.totalCents} size="lg" />
       </div>
 
       {/* Barra de 100%: proporção. O gap de 2px é a superfície, não uma borda. */}

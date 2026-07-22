@@ -66,13 +66,13 @@ export function BudgetPanel({
     <div className="flex flex-col gap-3 rounded-lg border p-4">
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <p className="text-muted-foreground text-xs">Entradas planejadas / mês</p>
+          <p className="eyebrow">Entradas planejadas / mês</p>
           <p className="text-lg font-semibold tabular-nums text-emerald-600 dark:text-emerald-500">
             {formatBRL(incomeCents)}
           </p>
         </div>
         <div>
-          <p className="text-muted-foreground text-xs">Saídas planejadas / mês</p>
+          <p className="eyebrow">Saídas planejadas / mês</p>
           <p className="text-lg font-semibold tabular-nums">{formatBRL(expenseCents)}</p>
         </div>
       </div>

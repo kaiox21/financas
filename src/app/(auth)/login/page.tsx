@@ -21,7 +21,7 @@ export default function LoginPage() {
           <div className="bg-primary text-primary-foreground mb-2 flex size-10 items-center justify-center rounded-lg">
             <Wallet className="size-5" />
           </div>
-          <CardTitle>Finanças</CardTitle>
+          <CardTitle className="font-heading text-xl">Finanças</CardTitle>
           <CardDescription>Entre para acessar suas contas.</CardDescription>
         </CardHeader>
         <CardContent>

@@ -9,7 +9,10 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-display: var(--font-bricolage);
+  --font-heading: var(--font-bricolage);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,72 +52,82 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /* Extrato em papel: fundo off-white morno, tinta teal-pinho profunda. */
+  --background: oklch(0.99 0.004 95);
+  --foreground: oklch(0.24 0.018 178);
+  --card: oklch(1 0.002 95);
+  --card-foreground: oklch(0.24 0.018 178);
+  --popover: oklch(1 0.002 95);
+  --popover-foreground: oklch(0.24 0.018 178);
+  /* Marca: pinho-teal — separado do verde de "entrada" de propósito. */
+  --primary: oklch(0.48 0.075 178);
+  --primary-foreground: oklch(0.99 0.004 95);
+  --secondary: oklch(0.955 0.006 95);
+  --secondary-foreground: oklch(0.3 0.02 178);
+  --muted: oklch(0.955 0.006 95);
+  --muted-foreground: oklch(0.52 0.014 172);
+  --accent: oklch(0.95 0.014 88);
+  --accent-foreground: oklch(0.3 0.02 178);
+  /* Saída: vermelho argila, menos berrante que o default. */
+  --destructive: oklch(0.55 0.17 27);
+  --border: oklch(0.91 0.006 90);
+  --input: oklch(0.91 0.006 90);
+  --ring: oklch(0.48 0.075 178);
+  /* Assinatura, usado com parcimônia: ouro velho (patrimônio, ativo). */
+  --gold: oklch(0.62 0.11 76);
+  --gold-foreground: oklch(0.99 0.004 95);
+  /* Sequência de gráfico coerente: pinho → ouro → teal claro → argila → sálvia. */
+  --chart-1: oklch(0.5 0.08 178);
+  --chart-2: oklch(0.72 0.11 78);
+  --chart-3: oklch(0.62 0.07 200);
+  --chart-4: oklch(0.6 0.13 35);
+  --chart-5: oklch(0.7 0.04 160);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.975 0.006 92);
+  --sidebar-foreground: oklch(0.24 0.018 178);
+  --sidebar-primary: oklch(0.48 0.075 178);
+  --sidebar-primary-foreground: oklch(0.99 0.004 95);
+  --sidebar-accent: oklch(0.95 0.014 88);
+  --sidebar-accent-foreground: oklch(0.3 0.02 178);
+  --sidebar-border: oklch(0.91 0.006 90);
+  --sidebar-ring: oklch(0.48 0.075 178);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
+  /* Tinta profunda com fundo teal, não o preto-puro + acento ácido do default. */
+  --background: oklch(0.18 0.014 178);
+  --foreground: oklch(0.95 0.006 95);
+  --card: oklch(0.21 0.016 178);
+  --card-foreground: oklch(0.95 0.006 95);
+  --popover: oklch(0.21 0.016 178);
+  --popover-foreground: oklch(0.95 0.006 95);
+  --primary: oklch(0.74 0.1 178);
+  --primary-foreground: oklch(0.18 0.014 178);
+  --secondary: oklch(0.26 0.016 178);
+  --secondary-foreground: oklch(0.95 0.006 95);
+  --muted: oklch(0.26 0.016 178);
+  --muted-foreground: oklch(0.71 0.014 175);
+  --accent: oklch(0.28 0.02 178);
+  --accent-foreground: oklch(0.95 0.006 95);
+  --destructive: oklch(0.68 0.17 25);
+  --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --ring: oklch(0.74 0.1 178);
+  --gold: oklch(0.76 0.11 78);
+  --gold-foreground: oklch(0.18 0.014 178);
+  --chart-1: oklch(0.65 0.09 178);
+  --chart-2: oklch(0.76 0.11 78);
+  --chart-3: oklch(0.68 0.08 200);
+  --chart-4: oklch(0.66 0.13 35);
+  --chart-5: oklch(0.6 0.04 160);
+  --sidebar: oklch(0.2 0.016 178);
+  --sidebar-foreground: oklch(0.95 0.006 95);
+  --sidebar-primary: oklch(0.74 0.1 178);
+  --sidebar-primary-foreground: oklch(0.18 0.014 178);
+  --sidebar-accent: oklch(0.28 0.02 178);
+  --sidebar-accent-foreground: oklch(0.95 0.006 95);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.74 0.1 178);
 }
 
 @layer base {
@@ -126,5 +139,18 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Figuras do display alinham em coluna, como num extrato. */
+  .font-display,
+  .font-heading {
+    font-feature-settings: "tnum" 1, "ss01" 1;
+  }
+}
+
+@layer components {
+  /* Rótulo de seção no vocabulário de extrato: caixa-alta, discreto, espaçado.
+     Estrutura que codifica hierarquia, não decora. */
+  .eyebrow {
+    @apply text-muted-foreground text-[0.6875rem] font-medium tracking-[0.14em] uppercase;
   }
 }

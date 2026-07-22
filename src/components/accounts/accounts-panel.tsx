@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { deleteAccount, setAccountArchived } from "@/actions/accounts";
 import { AccountDialog, useAccountDialog } from "@/components/accounts/account-dialog";
+import { MoneyFigure } from "@/components/money-figure";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -43,15 +44,8 @@ export function AccountsPanel({ accounts }: { accounts: AccountWithBalance[] }) 
     <div className="flex flex-col gap-4">
       <div className="bg-muted/50 flex items-center justify-between rounded-lg border p-4">
         <div>
-          <p className="text-muted-foreground text-xs">Saldo total</p>
-          <p
-            className={cn(
-              "text-2xl font-semibold tabular-nums",
-              total < 0 && "text-destructive",
-            )}
-          >
-            {formatBRL(total)}
-          </p>
+          <p className="eyebrow">Saldo total</p>
+          <MoneyFigure cents={total} size="md" />
         </div>
         <Button onClick={dialog.openNew}>
           <Plus />
