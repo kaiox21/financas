@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { addMonths, addMonthsToMonth, isValidDate, type MonthStr } from "@/lib/dates";
+import { addMonths, addMonthsToMonth, isValidDate, today, type MonthStr } from "@/lib/dates";
+import { planReinstallment, type ParcelRow } from "@/lib/installments";
+import { buildInvoices } from "@/lib/invoice-summary";
 import { invoiceMonthFor } from "@/lib/invoices";
 import { MAX_INSTALLMENTS, splitInstallments } from "@/lib/money";
 import { createClient } from "@/lib/supabase/server";
@@ -227,6 +229,131 @@ async function updateTransaction(
     .eq("installment_group_id", current.installment_group_id)
     .gte("installment_number", current.installment_number);
   if (error) return failure("Não foi possível salvar as parcelas.");
+
+  revalidate();
+  return success;
+}
+
+/** O grupo de parcelas + quais faturas já estão quitadas. */
+export type InstallmentGroup = {
+  groupId: string;
+  parcels: ParcelRow[];
+  /** Meses de fatura já pagos — travam as parcelas que caem neles. */
+  paidMonths: MonthStr[];
+  totalCents: number;
+};
+
+async function loadInstallmentGroup(
+  transactionId: string,
+): Promise<InstallmentGroup | null> {
+  const supabase = await createClient();
+
+  const { data: source, error: sourceError } = await supabase
+    .from("transactions")
+    .select("installment_group_id, credit_card_id")
+    .eq("id", transactionId)
+    .single();
+  if (sourceError || !source?.installment_group_id || !source.credit_card_id) {
+    return null;
+  }
+
+  const groupId = source.installment_group_id;
+
+  const [parcels, card, cardTransactions] = await Promise.all([
+    supabase
+      .from("transactions")
+      .select("id, amount_cents, date, invoice_month, installment_number")
+      .eq("installment_group_id", groupId),
+    supabase
+      .from("credit_cards")
+      .select("closing_day, due_day")
+      .eq("id", source.credit_card_id)
+      .single(),
+    supabase
+      .from("transactions")
+      .select(
+        "type, amount_cents, invoice_month, payment_method, is_invoice_payment, affects_balance",
+      )
+      .eq("credit_card_id", source.credit_card_id),
+  ]);
+
+  if (parcels.error || card.error || cardTransactions.error) return null;
+
+  // Fatura quitada trava a parcela: mexer nela reabriria uma fatura já paga.
+  const paidMonths = buildInvoices(
+    cardTransactions.data,
+    { closingDay: card.data.closing_day, dueDay: card.data.due_day },
+    today(),
+  )
+    .filter((invoice) => invoice.isPaid)
+    .map((invoice) => invoice.month);
+
+  return {
+    groupId,
+    parcels: parcels.data,
+    paidMonths,
+    totalCents: parcels.data.reduce((sum, parcel) => sum + parcel.amount_cents, 0),
+  };
+}
+
+/**
+ * Dados do parcelamento para a tela de reparcelar montar a prévia com a mesma
+ * função pura que o servidor usa para gravar — prévia e resultado não divergem.
+ */
+export async function getInstallmentGroup(
+  transactionId: string,
+): Promise<InstallmentGroup | null> {
+  return loadInstallmentGroup(transactionId);
+}
+
+/**
+ * Troca o número de parcelas de uma compra já lançada.
+ *
+ * O total é redistribuído entre as parcelas — é o mesmo contrato da criação,
+ * onde você informa o valor da compra e o app divide. Passar `totalCents`
+ * diferente do atual também permite corrigir o valor da compra de uma vez
+ * (útil quando o parcelamento foi renegociado).
+ *
+ * Parcelas que já caíram em fatura paga não são tocadas: ver `lib/installments`.
+ */
+export async function changeInstallments(
+  transactionId: string,
+  newCount: number,
+  totalCents: number,
+): Promise<FormState> {
+  const count = installmentsSchema.safeParse(newCount);
+  if (!count.success) return failure(firstIssue(count.error));
+
+  const group = await loadInstallmentGroup(transactionId);
+  if (!group) return failure("Esta transação não faz parte de um parcelamento.");
+
+  const { groupId } = group;
+
+  // Replaneja no servidor: a prévia do cliente nunca é a fonte da verdade.
+  const result = planReinstallment({
+    parcels: group.parcels,
+    paidMonths: new Set(group.paidMonths),
+    newCount: count.data,
+    totalCents,
+  });
+  if (!result.ok) return failure(result.error);
+
+  const { plan } = result;
+  const supabase = await createClient();
+
+  const { error } = await supabase.rpc("reinstall_purchase", {
+    p_group_id: groupId,
+    p_delete_ids: plan.deleteIds,
+    p_keep_ids: plan.keepIds,
+    p_installment_total: plan.installmentTotal,
+    p_new_rows: plan.create.map((parcel) => ({
+      amount_cents: parcel.amount_cents,
+      date: parcel.date,
+      invoice_month: parcel.invoice_month,
+      installment_number: parcel.installment_number,
+    })),
+  });
+  if (error) return failure("Não foi possível reparcelar a compra.");
 
   revalidate();
   return success;

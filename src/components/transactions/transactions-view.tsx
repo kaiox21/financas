@@ -8,11 +8,13 @@ import {
   Pencil,
   Plus,
   Repeat,
+  Split,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { deleteTransaction } from "@/actions/transactions";
+import { ReinstallDialog } from "@/components/transactions/reinstall-dialog";
 import {
   TransactionSheet,
   type TransactionFormData,
@@ -51,6 +53,7 @@ export function TransactionsView({
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | undefined>();
   const [deleting, setDeleting] = useState<TransactionView | null>(null);
+  const [reinstalling, setReinstalling] = useState<Transaction | null>(null);
   const [, startTransition] = useTransition();
 
   function remove(id: string, scope: "one" | "remaining") {
@@ -185,6 +188,14 @@ export function TransactionsView({
                           <Pencil />
                           Editar
                         </DropdownMenuItem>
+                        {transaction.installment_group_id ? (
+                          <DropdownMenuItem
+                            onClick={() => setReinstalling(transaction)}
+                          >
+                            <Split />
+                            Reparcelar
+                          </DropdownMenuItem>
+                        ) : null}
                         <DropdownMenuItem
                           variant="destructive"
                           onClick={() => {
@@ -227,6 +238,13 @@ export function TransactionsView({
         transaction={editing}
         open={open}
         onOpenChange={setOpen}
+      />
+
+      <ReinstallDialog
+        transaction={reinstalling}
+        onOpenChange={(next) => {
+          if (!next) setReinstalling(null);
+        }}
       />
 
       <AlertDialog

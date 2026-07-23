@@ -163,6 +163,22 @@ export type Database = {
         Args: { target_user: string };
         Returns: undefined;
       };
+      /** Aplica um reparcelamento numa transação só. Ver 0005. */
+      reinstall_purchase: {
+        Args: {
+          p_group_id: string;
+          p_delete_ids: string[];
+          p_keep_ids: string[];
+          p_installment_total: number | null;
+          p_new_rows: {
+            amount_cents: number;
+            date: string;
+            invoice_month: string;
+            installment_number: number | null;
+          }[];
+        };
+        Returns: undefined;
+      };
     };
     Enums: {
       tx_type: TxType;
